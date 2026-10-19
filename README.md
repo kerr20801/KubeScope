@@ -1,13 +1,13 @@
 # ⬡ KubeScope — Kubernetes 異常透視與白話排障軍師
 
-[![Platform](https://img.shields.io/badge/Platform-Windows%2010%20%7C%2011%20%7C%20Server-lightgrey.svg)]()
+[![Platform](https://img.shields.io/badge/Platform-macOS%20%7C%20Linux%20%7C%20Windows-blue.svg)]()
 [![Python](https://img.shields.io/badge/Python-3.10%2B-blue.svg)](https://www.python.org/)
 [![Zero-Agent](https://img.shields.io/badge/Zero--Agent-100%25%20In--Cluster%20Free-emerald.svg)]()
 [![Air-Gapped](https://img.shields.io/badge/Privacy-100%25%20Air--Gapped%20Local-success.svg)]()
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 專為**網路工程師、系統管理員 (SysAdmin)、初入 K8s 的開發者與機房維運人員**打造的**輕量零侵入 Kubernetes 異常透視、CVE 漏洞快篩與升級導引軍師**！  
-**100% 純唯讀、免在叢集安裝任何 Agent / CRD、支援無網斷網機房（Air-Gapped）、拒絕黑盒子自走砲（Human-in-the-Loop）。**
+**100% 純唯讀、跨平台相容 (macOS / Linux / Windows)、免在叢集安裝任何 Agent / CRD、支援無網斷網機房（Air-Gapped）、拒絕黑盒子自走砲（Human-in-the-Loop）。**
 
 ---
 
@@ -113,22 +113,41 @@ KubeScope/
   │    ├── sample_cluster_issues.json   # 實戰綜合故障事故範例 (OOM + Crash + 服務黑洞)
   │    ├── sample_healthy_cluster.json  # 正常健康叢集 (100分演示)
   │    └── sample_cve_legacy.json       # 老舊叢集 (含 CVE 與廢棄 API 樣本)
-  ├── server.py                # 零依賴 Python RESTful API 伺服器 (埠號 8930)
-  ├── test_engine.py           # 自動化迴歸測試套件 (涵蓋法醫診斷、CVE、升級推算)
-  ├── launcher.ps1             # 智慧環境檢查與快速啟動腳本
-  ├── 啟動服務.bat              # Windows 雙擊極速啟動 (自動開啟瀏覽器)
-  ├── requirements.txt         # 零強制外部依賴 (純 Python 3.10+ 標準庫即可運行)
+  ├── server.py                # 零依賴 Python RESTful API 伺服器 (埠號 8930，支援全平台)
+  ├── test_engine.py           # 自動化迴歸測試套件 (涵蓋法醫診斷、CVE、升級推算、供應鏈)
+  ├── verify_integrity.py      # SHA-256 全文代碼防偽與防竄改驗證儀
+  ├── SHA256SUMS.txt           # 官方加密雜湊簽名清單
+  ├── run.sh                   # macOS / Linux 一鍵極速啟動腳本
+  ├── launcher.ps1             # Windows PowerShell 環境檢查與啟動引導
+  ├── 啟動服務.bat              # Windows 滑鼠雙擊極速啟動
+  ├── requirements.txt         # 零強制外部依賴聲明 (天生免疫 PyPI 供應鏈攻擊)
   ├── LICENSE                  # MIT 開源授權協議
   └── README.md                # 專案詳細說明文件
 ```
 
 ---
 
-## 🚀 快速開始
- 
-1. 雙擊執行目錄中的 **`啟動服務.bat`**。
-2. 預設瀏覽器會自動開啟控制台：`http://localhost:8930/`。
-3. 體驗 **「🧭 實戰排障操作流」**：
+## 🚀 跨平台快速開始 (Quick Start)
+
+KubeScope 核心為標準 Python 3 原生架構，**全作業系統原生支援**：
+
+### 🍎 macOS 與 🐧 Linux 使用者：
+在終端機執行任一指令（自動拉起伺服器並開啟瀏覽器）：
+```bash
+./run.sh
+# 或直接透過 Python 啟動：
+python3 server.py
+```
+
+### 🪟 Windows 使用者：
+* **雙擊執行** 目錄中的 **`啟動服務.bat`**。
+* 或在終端機直接執行：`python server.py`。
+
+預設瀏覽器會自動開啟控制台：`http://localhost:8930/`。
+
+---
+
+### 🧭 實戰排障操作四部曲：
    * 點擊 **「第 1 動：檢測節點健康」** 貼上 `kubectl get nodes -o wide` 或直接點「載入範例」。
    * 點擊 **「第 2 動：篩查命名空間 Pods」** 貼上 `kubectl get pods -A -o wide`，點選紅色故障 Pod。
    * **「第 3 動：智能神鑰匙」** 自動生成死亡遺言指令（`kubectl logs --previous`），複製並貼入終端機。

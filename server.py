@@ -258,11 +258,27 @@ class KubeScopeHandler(BaseHTTPRequestHandler):
 class ReusableTCPServer(socketserver.TCPServer):
     allow_reuse_address = True
 
+def _open_browser_delayed():
+    import time
+    import webbrowser
+    time.sleep(0.6)
+    try:
+        webbrowser.open(f"http://localhost:{PORT}/")
+    except Exception:
+        pass
+
 def run():
+    import threading
     server_address = ('', PORT)
+
+    # Automatically open browser across all OS (Windows, macOS, Linux) unless --no-browser is passed
+    if "--no-browser" not in sys.argv:
+        threading.Thread(target=_open_browser_delayed, daemon=True).start()
+
     with ReusableTCPServer(server_address, KubeScopeHandler) as httpd:
         print(f"=======================================================")
         print(f"  [*] KubeScope - Kubernetes 異常透視與白話排障軍師")
+        print(f"  跨平台相容: macOS | Linux | Windows (純標準庫 0 依賴)")
         print(f"  Web Dashboard: http://localhost:{PORT}/")
         print(f"  API Gateway  : http://localhost:{PORT}/api/status")
         print(f"=======================================================")
