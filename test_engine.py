@@ -209,5 +209,65 @@ class TestKubeScopeEngine(unittest.TestCase):
         self.assertTrue(any(f["category"] == "MUTABLE_TAG" for f in res_container["findings"]))
         self.assertTrue(any(f["category"] == "RUNTIME_ESCALATION_RISK" for f in res_container["findings"]))
 
+    def test_yaml_workbench(self):
+        from core.yaml_workbench import YAMLWorkbench
+        wb = YAMLWorkbench()
+
+        # Test Namespace generation with PSS & ResourceQuota
+        res_ns = wb.generate_namespace("finance-prod", pss_level="restricted", cpu_quota="8", mem_quota="16Gi")
+        self.assertTrue(res_ns["success"])
+        self.assertIn("pod-security.kubernetes.io/enforce: restricted", res_ns["yaml"])
+        self.assertIn("finance-prod-quota", res_ns["yaml"])
+        self.assertIn("kubectl apply", res_ns["kubectl_command"])
+
+        # Test Resource Patch generation for OOM fix
+        res_patch = wb.generate_resource_patch("payment-service", "finance-prod", mem_limit="2Gi", mem_request="1Gi")
+        self.assertTrue(res_patch["success"])
+        self.assertIn('memory: "2Gi"', res_patch["yaml"])
+        self.assertIn("kubectl patch deployment", res_patch["kubectl_command"])
+
+        # Test Service fix generation
+        res_svc = wb.generate_service_fix("web-svc", "finance-prod", correct_selector_app="frontend", service_port=80, target_port=8080)
+        self.assertTrue(res_svc["success"])
+        self.assertIn("app: frontend", res_svc["yaml"])
+
+    def test_cert_emergency_playbook(self):
+        from core.infra_doctor import InfraDoctor
+        doc = InfraDoctor()
+        playbook = doc.get_cert_emergency_playbook()
+        self.assertTrue(playbook["success"])
+        self.assertEqual(len(playbook["steps"]), 7)
+        self.assertTrue(any("kubeadm certs renew all" in s["command"] for s in playbook["steps"]))
+        self.assertTrue(any("kubeconfig" in s["command"] for s in playbook["steps"]))
+
+    def test_etcd_diagnostics(self):
+        from core.infra_doctor import InfraDoctor
+        doc = InfraDoctor()
+        samples_dir = os.path.join(os.path.dirname(__file__), "samples")
+        with open(os.path.join(samples_dir, "sample_etcd_status.txt"), "r", encoding="utf-8") as f:
+            text = f.read()
+
+        res = doc.parse_etcd_health(text)
+        self.assertTrue(res["success"])
+        self.assertEqual(res["overall_status"], "HEALTHY")
+        self.assertGreater(len(res["endpoints"]), 0)
+        self.assertTrue(any("snapshot save" in c for c in res["maintenance_commands"]))
+        self.assertTrue(any("compact" in c for c in res["maintenance_commands"]))
+        self.assertTrue(any("defrag" in c for c in res["maintenance_commands"]))
+
+    def test_kubelet_diagnostics(self):
+        from core.infra_doctor import InfraDoctor
+        doc = InfraDoctor()
+        samples_dir = os.path.join(os.path.dirname(__file__), "samples")
+        with open(os.path.join(samples_dir, "sample_kubelet_error.txt"), "r", encoding="utf-8") as f:
+            text = f.read()
+
+        res = doc.parse_kubelet_diagnostics(text)
+        self.assertTrue(res["success"])
+        self.assertFalse(res["is_healthy"])
+        swap_issue = next((i for i in res["issues"] if i["id"] == "KUBELET_SWAP_ERROR"), None)
+        self.assertIsNotNone(swap_issue)
+        self.assertIn("swapoff -a", swap_issue["command"])
+
 if __name__ == '__main__':
     unittest.main()
