@@ -1,0 +1,30 @@
+{
+  "version": "v1.24.2",
+  "nodes": [
+    {
+      "name": "legacy-master-01",
+      "status": "Ready",
+      "roles": "control-plane",
+      "age": "450d",
+      "version": "v1.24.2",
+      "internal_ip": "172.16.1.10",
+      "os_image": "Ubuntu 20.04 LTS",
+      "container_runtime": "docker://20.10.12",
+      "is_healthy": true
+    }
+  ],
+  "pods": [
+    {
+      "namespace": "legacy-app",
+      "name": "old-billing-service-7890f-9988a",
+      "ready": "1/1",
+      "status": "Running",
+      "status_reason": "Running",
+      "restarts": 0,
+      "age": "200d",
+      "ip": "10.244.0.50",
+      "node": "legacy-master-01"
+    }
+  ],
+  "services": []
+}

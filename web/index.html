@@ -1,0 +1,1372 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>⬡ KubeScope — Kubernetes 異常透視與白話排障軍師</title>
+  <style>
+    :root {
+      --base-font-size: 15px;
+      --bg-primary: #0a0e17;
+      --bg-secondary: #121926;
+      --bg-card: #1a2333;
+      --border-color: #2a364f;
+      --text-main: #e2e8f0;
+      --text-muted: #94a3b8;
+      --primary: #38bdf8;
+      --primary-hover: #0ea5e9;
+      --accent: #6366f1;
+      --critical: #ef4444;
+      --critical-bg: rgba(239, 68, 68, 0.12);
+      --warning: #f59e0b;
+      --warning-bg: rgba(245, 158, 11, 0.12);
+      --success: #10b981;
+      --success-bg: rgba(16, 185, 129, 0.12);
+      --code-bg: #0f172a;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans TC", sans-serif;
+      font-size: var(--base-font-size);
+      background-color: var(--bg-primary);
+      color: var(--text-main);
+      line-height: 1.6;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Top Navbar */
+    header {
+      background-color: var(--bg-secondary);
+      border-bottom: 1px solid var(--border-color);
+      padding: 0.8rem 1.5rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+    .brand h1 {
+      font-size: 1.3rem;
+      font-weight: 700;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .brand span.badge {
+      font-size: 0.75rem;
+      padding: 0.2rem 0.5rem;
+      background: rgba(56, 189, 248, 0.15);
+      color: var(--primary);
+      border: 1px solid rgba(56, 189, 248, 0.3);
+      border-radius: 4px;
+      font-weight: 600;
+    }
+
+    .nav-tabs {
+      display: flex;
+      gap: 0.4rem;
+    }
+    .tab-btn {
+      background: transparent;
+      border: 1px solid transparent;
+      color: var(--text-muted);
+      padding: 0.45rem 0.85rem;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.92rem;
+      font-weight: 600;
+      transition: all 0.2s;
+    }
+    .tab-btn:hover {
+      color: var(--text-main);
+      background: rgba(255, 255, 255, 0.05);
+    }
+    .tab-btn.active {
+      color: #fff;
+      background: var(--bg-card);
+      border-color: var(--primary);
+    }
+
+    .top-controls {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+
+    .font-zoom-ctrl {
+      display: flex;
+      align-items: center;
+      gap: 0.3rem;
+      background: var(--bg-card);
+      padding: 0.2rem 0.5rem;
+      border-radius: 6px;
+      border: 1px solid var(--border-color);
+      font-size: 0.85rem;
+    }
+    .font-zoom-btn {
+      background: #253349;
+      border: 1px solid #3b4d6b;
+      color: #cbd5e1;
+      padding: 0.15rem 0.5rem;
+      border-radius: 4px;
+      cursor: pointer;
+      font-weight: bold;
+    }
+    .font-zoom-btn:hover {
+      background: var(--primary);
+      color: #000;
+    }
+
+    .status-indicator {
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      font-size: 0.85rem;
+      padding: 0.3rem 0.7rem;
+      border-radius: 20px;
+      background: rgba(16, 185, 129, 0.12);
+      border: 1px solid rgba(16, 185, 129, 0.3);
+      color: var(--success);
+    }
+
+    /* Main Container */
+    main {
+      flex: 1;
+      display: flex;
+      overflow: hidden;
+      height: calc(100vh - 65px);
+    }
+
+    .content-area {
+      flex: 1;
+      overflow-y: auto;
+      padding: 1.5rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1.5rem;
+    }
+
+    .chat-sidebar {
+      width: 440px;
+      border-left: 1px solid var(--border-color);
+      background-color: var(--bg-secondary);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* Grid & Cards */
+    .card {
+      background-color: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 1.25rem;
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2);
+    }
+
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1rem;
+      padding-bottom: 0.5rem;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    }
+    .card-title {
+      font-size: 1.15rem;
+      font-weight: 700;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .btn {
+      background: var(--primary);
+      color: #04101e;
+      border: none;
+      padding: 0.5rem 1rem;
+      border-radius: 6px;
+      font-size: 0.9rem;
+      font-weight: 600;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      transition: background 0.2s;
+    }
+    .btn:hover { background: var(--primary-hover); }
+
+    .btn-secondary {
+      background: #253349;
+      color: #cbd5e1;
+      border: 1px solid #3b4d6b;
+    }
+    .btn-secondary:hover {
+      background: #334460;
+      color: #fff;
+    }
+
+    .btn-sm {
+      padding: 0.25rem 0.6rem;
+      font-size: 0.8rem;
+    }
+
+    textarea.input-box {
+      width: 100%;
+      height: 140px;
+      background: var(--code-bg);
+      border: 1px solid var(--border-color);
+      color: #e2e8f0;
+      font-family: Consolas, Monaco, "Courier New", monospace;
+      font-size: 0.9rem;
+      padding: 0.75rem;
+      border-radius: 6px;
+      resize: vertical;
+      margin-bottom: 0.75rem;
+    }
+
+    /* Health Gauge Banner */
+    .health-banner {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 1.25rem 1.75rem;
+    }
+    .health-score-box {
+      display: flex;
+      align-items: center;
+      gap: 1.25rem;
+    }
+    .score-circle {
+      width: 68px;
+      height: 68px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.6rem;
+      font-weight: 800;
+      border: 4px solid var(--primary);
+      color: #fff;
+    }
+    .score-circle.critical { border-color: var(--critical); color: var(--critical); }
+    .score-circle.healthy { border-color: var(--success); color: var(--success); }
+
+    .health-stats {
+      display: flex;
+      gap: 1.5rem;
+    }
+    .stat-item {
+      text-align: center;
+    }
+    .stat-val {
+      font-size: 1.4rem;
+      font-weight: bold;
+    }
+    .stat-label {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+    }
+
+    /* 4-Step Flow Columns */
+    .step-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 1.25rem;
+    }
+
+    .badge-status {
+      display: inline-block;
+      padding: 0.2rem 0.55rem;
+      border-radius: 4px;
+      font-size: 0.8rem;
+      font-weight: 600;
+    }
+    .badge-critical { background: var(--critical-bg); color: #f87171; border: 1px solid rgba(239,68,68,0.3); }
+    .badge-warning { background: var(--warning-bg); color: #fbbf24; border: 1px solid rgba(245,158,11,0.3); }
+    .badge-normal { background: var(--success-bg); color: #34d399; border: 1px solid rgba(16,185,129,0.3); }
+
+    /* Pod and Node Tables */
+    table.data-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.88rem;
+    }
+    table.data-table th, table.data-table td {
+      padding: 0.65rem 0.75rem;
+      text-align: left;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    }
+    table.data-table th {
+      background: rgba(255, 255, 255, 0.03);
+      color: var(--text-muted);
+      font-weight: 600;
+    }
+    table.data-table tr:hover td {
+      background: rgba(255, 255, 255, 0.02);
+      cursor: pointer;
+    }
+    table.data-table tr.selected td {
+      background: rgba(56, 189, 248, 0.12);
+    }
+
+    /* Code Block with Copy */
+    .code-container {
+      position: relative;
+      background: var(--code-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      padding: 0.75rem;
+      margin: 0.5rem 0;
+      font-family: Consolas, monospace;
+      font-size: 0.88rem;
+      overflow-x: auto;
+    }
+    .copy-btn {
+      position: absolute;
+      top: 0.4rem;
+      right: 0.4rem;
+      background: #253349;
+      color: #cbd5e1;
+      border: 1px solid #3b4d6b;
+      padding: 0.2rem 0.5rem;
+      border-radius: 4px;
+      font-size: 0.75rem;
+      cursor: pointer;
+    }
+    .copy-btn:hover { background: var(--primary); color: #000; }
+
+    /* SRE AI Chat Panel */
+    .chat-header {
+      padding: 1rem 1.25rem;
+      border-bottom: 1px solid var(--border-color);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: var(--bg-card);
+    }
+    .chat-messages {
+      flex: 1;
+      overflow-y: auto;
+      padding: 1rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+    .chat-bubble {
+      padding: 0.85rem 1rem;
+      border-radius: 8px;
+      font-size: 0.95rem;
+      max-width: 95%;
+      word-break: break-word;
+      line-height: 1.55;
+    }
+    .chat-bubble.assistant {
+      background: #1e293b;
+      border: 1px solid #334155;
+      color: #f1f5f9;
+      align-self: flex-start;
+    }
+    .chat-bubble.user {
+      background: #1e3a8a;
+      border: 1px solid #2563eb;
+      color: #fff;
+      align-self: flex-end;
+    }
+    .chat-bubble pre {
+      background: #0f172a;
+      padding: 0.6rem;
+      border-radius: 4px;
+      margin: 0.5rem 0;
+      overflow-x: auto;
+      font-size: 0.88rem;
+    }
+    .chat-input-box {
+      padding: 0.85rem;
+      border-top: 1px solid var(--border-color);
+      background: var(--bg-secondary);
+      display: flex;
+      gap: 0.5rem;
+    }
+    .chat-input-box input {
+      flex: 1;
+      background: var(--code-bg);
+      border: 1px solid var(--border-color);
+      color: #fff;
+      padding: 0.6rem 0.85rem;
+      border-radius: 6px;
+      font-size: 0.95rem;
+      outline: none;
+    }
+    .chat-input-box input:focus {
+      border-color: var(--primary);
+    }
+
+    /* Route Topology SVG */
+    .topology-container {
+      width: 100%;
+      height: 480px;
+      background: var(--code-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      position: relative;
+      overflow: hidden;
+    }
+    svg.topo-svg {
+      width: 100%;
+      height: 100%;
+    }
+
+    /* Hidden Utility */
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body>
+
+  <!-- Top Navbar -->
+  <header>
+    <div class="brand">
+      <h1>⬡ KubeScope</h1>
+      <span class="badge">Kubernetes 異常透視與白話排障軍師</span>
+    </div>
+
+    <!-- Navigation Tabs -->
+    <div class="nav-tabs">
+      <button class="tab-btn active" onclick="switchTab('workbench')">🧭 實戰排障操作流</button>
+      <button class="tab-btn" onclick="switchTab('routes')">🌐 全鏈路路由拓撲</button>
+      <button class="tab-btn" onclick="switchTab('infra')">🔐 控制面與憑證</button>
+      <button class="tab-btn" onclick="switchTab('cve')">🛡️ CVE 漏洞掃描</button>
+      <button class="tab-btn" onclick="switchTab('upgrade')">🗺️ 升版導引 Runbook</button>
+      <button class="tab-btn" onclick="switchTab('supply')">📦 供應鏈安全</button>
+    </div>
+
+    <!-- Controls -->
+    <div class="top-controls">
+      <div class="font-zoom-ctrl">
+        <span>字體:</span>
+        <button class="font-zoom-btn" onclick="changeFontSize(-1)">A-</button>
+        <button class="font-zoom-btn" onclick="changeFontSize(0)">標準</button>
+        <button class="font-zoom-btn" onclick="changeFontSize(1)">A+</button>
+      </div>
+
+      <div class="status-indicator" id="ollama-status-badge">
+        <span id="ollama-dot">🟢</span>
+        <span id="ollama-status-text">Ollama: 連線中...</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Container -->
+  <main>
+    <!-- Left/Center Dynamic Content Area -->
+    <div class="content-area">
+
+      <!-- Overall Health & Primary Triage Banner -->
+      <div class="health-banner">
+        <div class="health-score-box">
+          <div class="score-circle" id="health-circle">--</div>
+          <div>
+            <h2 id="health-title" style="font-size: 1.25rem;">叢集健康狀態評估</h2>
+            <p id="health-desc" style="color: var(--text-muted); font-size: 0.9rem;">請匯入節點或 Pods 日誌進行即時會診</p>
+          </div>
+        </div>
+
+        <div class="health-stats">
+          <div class="stat-item">
+            <div class="stat-val" id="stat-total-pods" style="color: var(--primary);">0</div>
+            <div class="stat-label">Pod 總數</div>
+          </div>
+          <div class="stat-item">
+            <div class="stat-val" id="stat-critical-pods" style="color: var(--critical);">0</div>
+            <div class="stat-label">致命異常</div>
+          </div>
+          <div class="stat-item">
+            <div class="stat-val" id="stat-healthy-nodes" style="color: var(--success);">0</div>
+            <div class="stat-label">健康節點</div>
+          </div>
+          <div class="stat-item">
+            <div class="stat-val" id="stat-cve-count" style="color: var(--warning);">0</div>
+            <div class="stat-label">CVE 漏洞</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB 1: 實戰排障操作流 (Workbench) -->
+      <div id="tab-workbench" class="tab-pane">
+        <div class="step-grid">
+
+          <!-- 動 1: 檢測節點健康 -->
+          <div class="card">
+            <div class="card-header">
+              <div class="card-title">第 1 動：檢測節點健康 (Nodes)</div>
+              <button class="btn btn-secondary btn-sm" onclick="loadSampleNodes()">載入節點範例</button>
+            </div>
+            <textarea id="input-nodes" class="input-box" placeholder="貼上 `kubectl get nodes -o wide` 或直接按上方載入範例..."></textarea>
+            <button class="btn btn-sm" onclick="parseNodes()">⚡ 剖析節點狀態</button>
+            <div id="nodes-table-container" style="margin-top: 0.75rem; max-height: 180px; overflow-y: auto;"></div>
+          </div>
+
+          <!-- 動 2: 篩查命名空間 Pods -->
+          <div class="card">
+            <div class="card-header">
+              <div class="card-title">第 2 動：篩查命名空間 Pods</div>
+              <div style="display: flex; gap: 0.4rem;">
+                <button class="btn btn-secondary btn-sm" onclick="loadSampleIssues()">載入事故範例</button>
+                <button class="btn btn-secondary btn-sm" onclick="loadSampleHealthy()">載入健康範例</button>
+              </div>
+            </div>
+            <textarea id="input-pods" class="input-box" placeholder="貼上 `kubectl get pods -A -o wide` 或直接載入事故範例..."></textarea>
+            <button class="btn btn-sm" onclick="parsePodsAndDiagnose()">🚀 開始 SRE 智慧會診</button>
+            <div id="pods-table-container" style="margin-top: 0.75rem; max-height: 180px; overflow-y: auto;"></div>
+          </div>
+
+          <!-- 動 3: 智能組裝取證神鑰匙 -->
+          <div class="card">
+            <div class="card-header">
+              <div class="card-title">第 3 動：智能組裝取證神鑰匙 (Forensic Keys)</div>
+              <span id="selected-pod-badge" class="badge-status badge-critical">未選取目標</span>
+            </div>
+            <p style="font-size: 0.88rem; color: var(--text-muted); margin-bottom: 0.5rem;">
+              點擊上方異常 Pod，系統自動產生可直接貼入跳板機的 4 大神鑰匙指令：
+            </p>
+            <div id="evidence-commands-box">
+              <div class="code-container">
+                <button class="copy-btn" onclick="copyCode(this)">複製</button>
+                <code id="cmd-previous">kubectl logs -n &lt;ns&gt; &lt;pod&gt; --previous --tail=200</code>
+              </div>
+              <div class="code-container">
+                <button class="copy-btn" onclick="copyCode(this)">複製</button>
+                <code id="cmd-describe">kubectl describe pod -n &lt;ns&gt; &lt;pod&gt;</code>
+              </div>
+            </div>
+          </div>
+
+          <!-- 動 4: 日誌深度法醫與白話翻譯 -->
+          <div class="card">
+            <div class="card-header">
+              <div class="card-title">第 4 動：日誌深度法醫 (Log Forensic)</div>
+              <div style="display: flex; gap: 0.4rem;">
+                <button class="btn btn-secondary btn-sm" onclick="loadSampleOomLog()">載入 OOM 日誌</button>
+                <button class="btn btn-secondary btn-sm" onclick="loadSampleDbLog()">載入 DB逾時日誌</button>
+              </div>
+            </div>
+            <textarea id="input-log" class="input-box" placeholder="將終端機撈出的 `kubectl logs --previous` 貼於此處..."></textarea>
+            <button class="btn btn-sm" onclick="analyzeLog()">🔍 執行致命行切片法醫</button>
+            <div id="log-analysis-results" style="margin-top: 0.75rem;"></div>
+          </div>
+
+        </div>
+
+        <!-- Issues Cards Container -->
+        <div id="diagnosis-issues-container" style="margin-top: 1.25rem;"></div>
+      </div>
+
+      <!-- TAB 2: 全鏈路路由拓撲 (Traffic Route Tracer) -->
+      <div id="tab-routes" class="tab-pane hidden">
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">🌐 全鏈路路由拓撲透視 (Ingress ➔ Service ➔ Endpoints ➔ Pods)</div>
+            <button class="btn btn-secondary btn-sm" onclick="loadSampleRoutes()">載入路由斷鏈示範包</button>
+          </div>
+          <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 0.75rem;">
+            動態呈現五層連線拓撲，自動偵測 Ingress 懸空、Service 選擇器錯配 (503 黑洞) 與探針失敗：
+          </p>
+          <div class="topology-container" id="topology-box">
+            <svg class="topo-svg" id="topo-svg"></svg>
+          </div>
+          <div id="routes-table-container" style="margin-top: 1rem;"></div>
+        </div>
+      </div>
+
+      <!-- TAB 3: 控制面與憑證 (Infra Doctor) -->
+      <div id="tab-infra" class="tab-pane hidden">
+        <div class="step-grid">
+          <div class="card">
+            <div class="card-header">
+              <div class="card-title">🔑 Kubeadm PKI 憑證到期審計</div>
+              <button class="btn btn-secondary btn-sm" onclick="loadSampleCerts()">載入憑證範例</button>
+            </div>
+            <textarea id="input-certs" class="input-box" placeholder="貼上 `kubeadm certs check-expiration` 輸出..."></textarea>
+            <button class="btn btn-sm" onclick="checkCerts()">驗證憑證有效期限</button>
+            <div id="certs-result-container" style="margin-top: 0.75rem;"></div>
+          </div>
+
+          <div class="card">
+            <div class="card-header">
+              <div class="card-title">🩺 Kube-APIServer /readyz 探針健康</div>
+              <button class="btn btn-secondary btn-sm" onclick="loadSampleReadyz()">載入 /readyz 範例</button>
+            </div>
+            <textarea id="input-readyz" class="input-box" placeholder="貼上 `kubectl get --raw='/readyz?verbose'` 輸出..."></textarea>
+            <button class="btn btn-sm" onclick="checkReadyz()">剖析內部組件狀態</button>
+            <div id="readyz-result-container" style="margin-top: 0.75rem;"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB 4: CVE 漏洞掃描 (CVE Scanner) -->
+      <div id="tab-cve" class="tab-pane hidden">
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">🛡️ 離線 Air-Gapped K8s CVE 高危漏洞快篩儀</div>
+            <div style="display: flex; gap: 0.5rem; align-items: center;">
+              <input type="text" id="cve-version-input" value="v1.26.2" style="background: var(--code-bg); border: 1px solid var(--border-color); color: #fff; padding: 0.3rem 0.6rem; border-radius: 4px; width: 110px;">
+              <button class="btn btn-sm" onclick="scanCVE()">執行 CVE 掃描</button>
+            </div>
+          </div>
+          <div id="cve-results-container"></div>
+        </div>
+      </div>
+
+      <!-- TAB 5: 升版導引 Runbook (Upgrade Advisor) -->
+      <div id="tab-upgrade" class="tab-pane hidden">
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">🗺️ 升版平滑導引儀 (防跨版跳級崩潰 + 廢棄 API 預警)</div>
+            <div style="display: flex; gap: 0.5rem; align-items: center;">
+              <span>當前:</span>
+              <input type="text" id="up-curr" value="v1.24.2" style="background: var(--code-bg); border: 1px solid var(--border-color); color: #fff; padding: 0.3rem; border-radius: 4px; width: 85px;">
+              <span>目標:</span>
+              <input type="text" id="up-tar" value="v1.27.0" style="background: var(--code-bg); border: 1px solid var(--border-color); color: #fff; padding: 0.3rem; border-radius: 4px; width: 85px;">
+              <button class="btn btn-sm" onclick="generateUpgradePlan()">推算升級路徑</button>
+            </div>
+          </div>
+          <div id="upgrade-results-container"></div>
+        </div>
+      </div>
+
+      <!-- TAB 6: 供應鏈安全 (Supply Chain) -->
+      <div id="tab-supply" class="tab-pane hidden">
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">📦 依賴包仿冒 (Typosquatting) 與容器特權越權審計</div>
+            <button class="btn btn-secondary btn-sm" onclick="loadSampleRequirements()">載入示範清單</button>
+          </div>
+          <textarea id="input-requirements" class="input-box" placeholder="貼上 requirements.txt 或容器宣告清單..."></textarea>
+          <button class="btn btn-sm" onclick="auditSupplyChain()">執行依賴防偽與容器特權審計</button>
+          <div id="supply-chain-results-container" style="margin-top: 0.75rem;"></div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Right Sidebar: Local SRE Copilot Chat -->
+    <div class="chat-sidebar">
+      <div class="chat-header">
+        <div style="display: flex; align-items: center; gap: 0.5rem;">
+          <span style="font-size: 1.2rem;">🤖</span>
+          <strong>SRE 隨身軍師 Copilot</strong>
+        </div>
+        <span style="font-size: 0.8rem; color: var(--text-muted);">100% 機敏不出機房</span>
+      </div>
+
+      <div class="chat-messages" id="chat-messages">
+        <div class="chat-bubble assistant">
+          您好！我是 KubeScope 地端 SRE 軍師。我已就緒，您可以直接貼入 `kubectl` CLI 輸出進行事故分析，或詢問任何 Kubernetes 疑難排障、OOMKilled、CrashLoopBackOff 與升版規劃！
+        </div>
+      </div>
+
+      <div class="chat-input-box">
+        <input type="text" id="chat-user-input" placeholder="請教 SRE 軍師 (例如: 怎麼修復 OOMKilled?)" onkeydown="if(event.key==='Enter') sendChatMessage()">
+        <button class="btn btn-sm" onclick="sendChatMessage()">傳送</button>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    // Global State
+    let currentClusterData = null;
+    let selectedPod = null;
+    let chatHistory = [];
+    let baseFontSize = 15;
+
+    // Font Zoom Controller
+    function changeFontSize(delta) {
+      if (delta === 0) baseFontSize = 15;
+      else baseFontSize = Math.min(20, Math.max(12, baseFontSize + delta));
+      document.documentElement.style.setProperty('--base-font-size', baseFontSize + 'px');
+    }
+
+    // Tab Switcher
+    function switchTab(tabId) {
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.tab-pane').forEach(p => p.classList.add('hidden'));
+
+      const activeBtn = Array.from(document.querySelectorAll('.tab-btn')).find(b => b.getAttribute('onclick').includes(tabId));
+      if (activeBtn) activeBtn.classList.add('active');
+
+      const targetPane = document.getElementById('tab-' + tabId);
+      if (targetPane) targetPane.classList.remove('hidden');
+
+      if (tabId === 'routes') {
+        renderTopology();
+      }
+    }
+
+    // Check Ollama Status
+    async function checkOllama() {
+      try {
+        const res = await fetch('/api/status');
+        const data = await res.json();
+        const badge = document.getElementById('ollama-status-text');
+        const dot = document.getElementById('ollama-dot');
+        if (data.ollama && data.ollama.online) {
+          dot.textContent = '🟢';
+          badge.textContent = `Ollama: 已連線 (${data.ollama.default_model})`;
+        } else {
+          dot.textContent = '🟡';
+          badge.textContent = 'SRE 離線規則引擎';
+        }
+      } catch (e) {
+        document.getElementById('ollama-status-text').textContent = 'SRE 離線專家庫';
+      }
+    }
+
+    // Load Sample 1: Cluster Issues (OOM + CrashLoop + Service Blackhole)
+    async function loadSampleIssues() {
+      try {
+        const res = await fetch('/api/sample?type=issues');
+        const data = await res.json();
+        currentClusterData = data;
+        document.getElementById('input-pods').value = JSON.stringify(data, null, 2);
+        parsePodsAndDiagnose();
+      } catch (e) {
+        alert('無法載入範例: ' + e);
+      }
+    }
+
+    // Load Sample 2: Healthy Cluster
+    async function loadSampleHealthy() {
+      try {
+        const res = await fetch('/api/sample?type=healthy');
+        const data = await res.json();
+        currentClusterData = data;
+        document.getElementById('input-pods').value = JSON.stringify(data, null, 2);
+        parsePodsAndDiagnose();
+      } catch (e) {
+        alert('無法載入範例: ' + e);
+      }
+    }
+
+    // Parse Pods & Run Diagnosis
+    async function parsePodsAndDiagnose() {
+      const rawText = document.getElementById('input-pods').value.trim();
+      if (!rawText) return;
+
+      try {
+        const res = await fetch('/api/diagnose', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({data: rawText})
+        });
+        const data = await res.json();
+        renderDiagnosticResults(data);
+      } catch (e) {
+        alert('會診失敗: ' + e);
+      }
+    }
+
+    // Render Diagnostic Results
+    function renderDiagnosticResults(data) {
+      const diag = data.diagnosis || {};
+      const score = diag.health_score !== undefined ? diag.health_score : 100;
+      const stats = diag.stats || {};
+
+      // Health Circle
+      const circle = document.getElementById('health-circle');
+      circle.textContent = score;
+      circle.className = 'score-circle ' + (score < 80 ? 'critical' : 'healthy');
+
+      document.getElementById('stat-total-pods').textContent = stats.total_pods || 0;
+      document.getElementById('stat-critical-pods').textContent = stats.critical_pods || 0;
+      document.getElementById('stat-healthy-nodes').textContent = stats.healthy_nodes || 0;
+
+      const cveSum = data.cve_summary || {};
+      document.getElementById('stat-cve-count').textContent = cveSum.total_cves || 0;
+
+      // Render Pods Table
+      const pods = (data.cluster_model && data.cluster_model.pods) || [];
+      renderPodsTable(pods);
+
+      // Render Issues
+      renderIssuesCards(diag.issues || []);
+
+      // Auto-init SRE Proactive Chat Briefing
+      initProactiveSreBriefing(data);
+    }
+
+    // Render Pods Table
+    function renderPodsTable(pods) {
+      const container = document.getElementById('pods-table-container');
+      if (!pods.length) {
+        container.innerHTML = '<p style="color:var(--text-muted);font-size:0.85rem;">尚無 Pods 遙測資料</p>';
+        return;
+      }
+
+      let html = '<table class="data-table"><thead><tr><th>命名空間</th><th>Pod 名稱</th><th>狀態</th><th>重啟</th><th>節點</th></tr></thead><tbody>';
+      pods.forEach(p => {
+        const badgeClass = p.severity === 'CRITICAL' ? 'badge-critical' : (p.severity === 'WARNING' ? 'badge-warning' : 'badge-normal');
+        html += `<tr onclick="selectTargetPod('${p.namespace}', '${p.name}')">
+          <td>${p.namespace}</td>
+          <td><strong>${p.name}</strong></td>
+          <td><span class="badge-status ${badgeClass}">${p.status}</span></td>
+          <td>${p.restarts || 0}</td>
+          <td>${p.node || '-'}</td>
+        </tr>`;
+      });
+      html += '</tbody></table>';
+      container.innerHTML = html;
+
+      // Auto select first critical pod if exists
+      const crit = pods.find(p => p.severity === 'CRITICAL');
+      if (crit) selectTargetPod(crit.namespace, crit.name);
+    }
+
+    // Select Target Pod for Step 3 Forensic Keys
+    function selectTargetPod(ns, pod) {
+      selectedPod = { namespace: ns, name: pod };
+      document.getElementById('selected-pod-badge').textContent = `${ns}/${pod}`;
+      document.getElementById('cmd-previous').textContent = `kubectl logs -n ${ns} ${pod} --previous --tail=200`;
+      document.getElementById('cmd-describe').textContent = `kubectl describe pod -n ${ns} ${pod}`;
+    }
+
+    // Render Issues Cards
+    function renderIssuesCards(issues) {
+      const container = document.getElementById('diagnosis-issues-container');
+      if (!issues.length) {
+        container.innerHTML = '<div class="card" style="border-color:var(--success);"><h3 style="color:var(--success);">🟢 恭喜！未檢測到阻斷性故障，叢集健康運作中。</h3></div>';
+        return;
+      }
+
+      let html = '<h3 style="margin-bottom:0.75rem; color:#fff;">🚨 核心阻斷事故會診清單</h3>';
+      issues.forEach(i => {
+        const badgeClass = i.severity === 'CRITICAL' ? 'badge-critical' : 'badge-warning';
+        html += `<div class="card" style="margin-bottom: 0.85rem; border-left: 4px solid ${i.severity === 'CRITICAL' ? 'var(--critical)' : 'var(--warning)'};">
+          <div class="card-header">
+            <div style="display:flex;align-items:center;gap:0.6rem;">
+              <span class="badge-status ${badgeClass}">${i.severity}</span>
+              <strong>${i.title}</strong>
+            </div>
+            <button class="btn btn-secondary btn-sm" onclick="askAiAboutIssue('${i.title}', '${i.target}')">🤖 呼叫 SRE 軍師推演</button>
+          </div>
+          <p style="font-size:0.92rem; margin-bottom:0.4rem;"><strong>事故根因：</strong>${i.cause}</p>
+          <p style="font-size:0.88rem; color:var(--text-muted); margin-bottom:0.5rem;"><strong>修復指引：</strong>${i.recommendation || ''}</p>
+          ${i.log_snippet ? `<div class="code-container"><code style="color:#f87171;">${i.log_snippet}</code></div>` : ''}
+          ${i.actionable_commands ? i.actionable_commands.map(cmd => `
+            <div class="code-container">
+              <button class="copy-btn" onclick="copyCode(this)">複製</button>
+              <code>${cmd}</code>
+            </div>
+          `).join('') : ''}
+        </div>`;
+      });
+      container.innerHTML = html;
+    }
+
+    // Proactive SRE Briefing
+    function initProactiveSreBriefing(data) {
+      const diag = data.diagnosis || {};
+      const score = diag.health_score || 100;
+      const issues = diag.issues || [];
+
+      let briefing = `### 🛡️ 【SRE 軍師戰情總評速報】\n\n`;
+      briefing += `**當前叢集健康分數**：\`${score} / 100\`\n\n`;
+
+      if (issues.length) {
+        briefing += `🚨 **檢測到 ${issues.length} 個需要立即介入之核心阻斷**：\n`;
+        issues.slice(0, 3).forEach((iss, idx) => {
+          briefing += `${idx + 1}. **[${iss.severity}]** ${iss.title} (\`${iss.target}\`)\n`;
+        });
+        briefing += `\n**建議下一動**：請在左側點選目標 Pod 複製 \`--previous\` 取證神鑰匙，調閱死前日誌貼入「第 4 動」深度切片！`;
+      } else {
+        briefing += `🟢 **全叢集無任何崩潰與黑洞事故**，各命名空間 Pods 運作健康！`;
+      }
+
+      appendChatMessage('assistant', briefing);
+    }
+
+    // Chat Message Helpers
+    function appendChatMessage(role, text) {
+      const container = document.getElementById('chat-messages');
+      const bubble = document.createElement('div');
+      bubble.className = `chat-bubble ${role}`;
+      bubble.innerHTML = formatMarkdown(text);
+      container.appendChild(bubble);
+      container.scrollTop = container.scrollHeight;
+      chatHistory.push({ role, content: text });
+    }
+
+    function formatMarkdown(text) {
+      return text
+        .replace(/### (.*?)\n/g, '<h4 style="margin:0.4rem 0;color:var(--primary);">$1</h4>')
+        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+        .replace(/`([^`]+)`/g, '<code style="background:rgba(255,255,255,0.1);padding:0.15rem 0.35rem;border-radius:3px;">$1</code>')
+        .replace(/```bash([\s\S]*?)```/g, '<div class="code-container"><button class="copy-btn" onclick="copyCode(this)">複製</button><code>$1</code></div>')
+        .replace(/\n/g, '<br>');
+    }
+
+    async function sendChatMessage() {
+      const input = document.getElementById('chat-user-input');
+      const text = input.value.trim();
+      if (!text) return;
+
+      input.value = '';
+      appendChatMessage('user', text);
+
+      try {
+        const res = await fetch('/api/chat', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({
+            query: text,
+            context: currentClusterData ? (currentClusterData.diagnosis || currentClusterData) : null,
+            messages: chatHistory
+          })
+        });
+        const data = await res.json();
+        appendChatMessage('assistant', data.response || '（無回應）');
+      } catch (e) {
+        appendChatMessage('assistant', '連線異常: ' + e);
+      }
+    }
+
+    function askAiAboutIssue(title, target) {
+      const query = `請針對 【${title}】(目標: ${target}) 提供最直接的根因剖析與可以直接貼入終端機的修復驗證指令！`;
+      appendChatMessage('user', query);
+      sendChatMessageDirect(query);
+    }
+
+    async function sendChatMessageDirect(query) {
+      try {
+        const res = await fetch('/api/chat', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({
+            query: query,
+            context: currentClusterData ? (currentClusterData.diagnosis || currentClusterData) : null,
+            messages: chatHistory
+          })
+        });
+        const data = await res.json();
+        appendChatMessage('assistant', data.response || '（無回應）');
+      } catch (e) {
+        appendChatMessage('assistant', '連線異常: ' + e);
+      }
+    }
+
+    // Step 4: Log Analyzer
+    async function analyzeLog() {
+      const log = document.getElementById('input-log').value.trim();
+      if (!log) return;
+
+      const podName = selectedPod ? selectedPod.name : 'unknown-pod';
+      const ns = selectedPod ? selectedPod.namespace : 'default';
+
+      try {
+        const res = await fetch('/api/analyze-log', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ log, pod_name: podName, namespace: ns })
+        });
+        const data = await res.json();
+        renderLogAnalysis(data);
+      } catch (e) {
+        alert('日誌法醫失敗: ' + e);
+      }
+    }
+
+    function renderLogAnalysis(data) {
+      const container = document.getElementById('log-analysis-results');
+      if (!data.matched_issues || !data.matched_issues.length) {
+        container.innerHTML = '<p style="color:var(--success);font-size:0.9rem;">未檢測到明顯 Panic 或 OOM 異常。</p>';
+        return;
+      }
+
+      let html = '';
+      data.matched_issues.forEach(i => {
+        html += `<div style="background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);padding:0.75rem;border-radius:6px;margin-bottom:0.5rem;">
+          <h4 style="color:#f87171;margin-bottom:0.3rem;">${i.title}</h4>
+          <p style="font-size:0.88rem;color:#e2e8f0;">${i.plain_explanation}</p>
+          <div class="code-container"><code style="color:#fca5a5;">${i.evidence_snippet}</code></div>
+          ${i.actionable_commands ? i.actionable_commands.map(cmd => `
+            <div class="code-container">
+              <button class="copy-btn" onclick="copyCode(this)">複製</button>
+              <code>${cmd}</code>
+            </div>
+          `).join('') : ''}
+        </div>`;
+      });
+      container.innerHTML = html;
+    }
+
+    function loadSampleOomLog() {
+      document.getElementById('input-log').value = 
+`2026-10-19T02:15:30Z [WARN] Memory consumption reaches 98% threshold
+2026-10-19T02:15:32Z [ERROR] java.lang.OutOfMemoryError: Java heap space
+    at com.corp.payment.service.AllocationService.buildLedger(AllocationService.java:184)
+2026-10-19T02:15:33Z [SYSTEM] Container terminated with exit code 137 (SIGKILL) - Memory cgroup out of memory`;
+      analyzeLog();
+    }
+
+    function loadSampleDbLog() {
+      document.getElementById('input-log').value = 
+`2026-10-19T10:04:12Z [INFO] Connecting to primary database at 10.96.200.12:6379...
+2026-10-19T10:04:42Z [ERROR] dial tcp 10.96.200.12:6379: i/o timeout
+panic: failed to acquire database lock within deadline`;
+      analyzeLog();
+    }
+
+    // Dynamic Route Topology Visualizer (SVG)
+    async function loadSampleRoutes() {
+      try {
+        const res = await fetch('/api/sample-route');
+        const data = await res.json();
+        const traceRes = await fetch('/api/trace-route', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify(data)
+        });
+        const traceData = await traceRes.json();
+        renderRoutesData(traceData);
+      } catch (e) {
+        alert('路由分析失敗: ' + e);
+      }
+    }
+
+    function renderRoutesData(data) {
+      const container = document.getElementById('routes-table-container');
+      let html = '<table class="data-table"><thead><tr><th>Ingress 域名/路徑</th><th>目標 Service</th><th>後端 Pods</th><th>鏈路狀態</th><th>診斷詳情</th></tr></thead><tbody>';
+      (data.routes || []).forEach(r => {
+        const badge = r.status === 'HEALTHY' ? 'badge-normal' : (r.status === 'DEGRADED' ? 'badge-warning' : 'badge-critical');
+        html += `<tr>
+          <td>${r.host || '*'}${r.path || '/'}</td>
+          <td><strong>${r.service}</strong></td>
+          <td>${(r.matched_pods || []).join(', ') || '<span style="color:#f87171;">(無 Pod 匹配)</span>'}</td>
+          <td><span class="badge-status ${badge}">${r.status}</span></td>
+          <td>${r.detail}</td>
+        </tr>`;
+      });
+      html += '</tbody></table>';
+      container.innerHTML = html;
+
+      renderTopology(data.routes || []);
+    }
+
+    function renderTopology(routes = []) {
+      const svg = document.getElementById('topo-svg');
+      svg.innerHTML = '';
+
+      if (!routes.length) {
+        svg.innerHTML = '<text x="50%" y="50%" fill="#64748b" text-anchor="middle" font-size="16">請點擊上方「載入路由斷鏈示範包」繪製拓撲圖</text>';
+        return;
+      }
+
+      const width = svg.clientWidth || 800;
+      const startX = 60;
+      const ingX = width * 0.25;
+      const svcX = width * 0.55;
+      const podX = width * 0.82;
+
+      let y = 60;
+      routes.forEach((r, idx) => {
+        const isBroken = r.status === 'BROKEN';
+        const color = isBroken ? '#ef4444' : '#10b981';
+
+        // Draw Ingress Node
+        svg.innerHTML += `
+          <rect x="${ingX - 60}" y="${y - 20}" width="120" height="40" rx="6" fill="#1e293b" stroke="${color}" stroke-width="2"/>
+          <text x="${ingX}" y="${y + 5}" fill="#fff" text-anchor="middle" font-size="12">Ingress: ${r.path || '/'}</text>
+        `;
+
+        // Draw Line Ingress -> Service
+        svg.innerHTML += `
+          <line x1="${ingX + 60}" y1="${y}" x2="${svcX - 60}" y2="${y}" stroke="${color}" stroke-width="2" stroke-dasharray="${isBroken && r.broken_layer==='INGRESS_TO_SERVICE' ? '5,5' : 'none'}"/>
+        `;
+
+        // Draw Service Node
+        svg.innerHTML += `
+          <rect x="${svcX - 60}" y="${y - 20}" width="120" height="40" rx="6" fill="#1e293b" stroke="${color}" stroke-width="2"/>
+          <text x="${svcX}" y="${y + 5}" fill="#38bdf8" text-anchor="middle" font-size="12">${r.service.split('/')[1] || r.service}</text>
+        `;
+
+        // Draw Line Service -> Pods
+        svg.innerHTML += `
+          <line x1="${svcX + 60}" y1="${y}" x2="${podX - 45}" y2="${y}" stroke="${color}" stroke-width="2" stroke-dasharray="${isBroken && (r.broken_layer==='SERVICE_TO_ENDPOINTS'||r.broken_layer==='ENDPOINTS_UNREADY_PROBES') ? '5,5' : 'none'}"/>
+        `;
+
+        // Draw Pod Node
+        svg.innerHTML += `
+          <circle cx="${podX}" cy="${y}" r="22" fill="#1e293b" stroke="${color}" stroke-width="2"/>
+          <text x="${podX}" y="${y + 4}" fill="#fff" text-anchor="middle" font-size="10">${r.matched_pods.length ? 'Pod OK' : 'No Pod'}</text>
+        `;
+
+        y += 85;
+      });
+    }
+
+    // CVE Scanner
+    async function scanCVE() {
+      const ver = document.getElementById('cve-version-input').value.trim();
+      try {
+        const res = await fetch('/api/cve-scan', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ version: ver })
+        });
+        const data = await res.json();
+        renderCVEResults(data);
+      } catch (e) {
+        alert('CVE 掃描失敗: ' + e);
+      }
+    }
+
+    function renderCVEResults(data) {
+      const container = document.getElementById('cve-results-container');
+      if (!data.vulnerabilities || !data.vulnerabilities.length) {
+        container.innerHTML = '<p style="color:var(--success);margin-top:1rem;">🟢 此版本未命中本機離線庫中之已知重大 CVE 漏洞！</p>';
+        return;
+      }
+
+      let html = `<div style="margin-top:1rem;"><h4 style="color:#f87171;margin-bottom:0.75rem;">偵測到 ${data.total_cves} 項受影響之 CVE 漏洞：</h4>`;
+      data.vulnerabilities.forEach(c => {
+        html += `<div style="background:#1e293b;border:1px solid #334155;padding:0.85rem;border-radius:6px;margin-bottom:0.75rem;">
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <strong style="color:var(--primary);">${c.id} — ${c.title}</strong>
+            <span class="badge-status badge-critical">CVSS ${c.cvss} (${c.severity})</span>
+          </div>
+          <p style="font-size:0.88rem;color:#cbd5e1;margin:0.4rem 0;">${c.description}</p>
+          <p style="font-size:0.82rem;color:var(--text-muted);">修復版本：${(c.fixed_versions || []).join(', ')} ｜ 緩解建議：${c.mitigation}</p>
+        </div>`;
+      });
+      html += '</div>';
+      container.innerHTML = html;
+    }
+
+    // Upgrade Advisor Plan
+    async function generateUpgradePlan() {
+      const curr = document.getElementById('up-curr').value.trim();
+      const targ = document.getElementById('up-tar').value.trim();
+
+      try {
+        const res = await fetch('/api/upgrade-plan', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ current_version: curr, target_version: targ, toolchain: 'kubeadm' })
+        });
+        const data = await res.json();
+        renderUpgradeResults(data);
+      } catch (e) {
+        alert('升版推算失敗: ' + e);
+      }
+    }
+
+    function renderUpgradeResults(data) {
+      const container = document.getElementById('upgrade-results-container');
+      if (!data.success) {
+        container.innerHTML = `<p style="color:#f87171;margin-top:1rem;">${data.error}</p>`;
+        return;
+      }
+
+      let html = `<div style="margin-top:1rem;">
+        <h4 style="color:#fff;">升級路徑規劃 (${data.hop_count} 階段跳轉)：</h4>
+        <div style="display:flex;gap:0.5rem;margin:0.5rem 0;">
+          <span class="badge-status badge-normal">${data.current_version}</span>
+          <span>➔</span>
+          ${data.upgrade_hops.map(h => `<span class="badge-status badge-warning">${h}</span> <span>➔</span>`).join(' ')}
+          <span class="badge-status badge-normal">${data.target_version}</span>
+        </div>
+      `;
+
+      if (data.deprecations && data.deprecations.length) {
+        html += `<h4 style="color:#f59e0b;margin-top:0.75rem;">⚠️ 廢棄與已移除 API 預警：</h4>`;
+        data.deprecations.forEach(d => {
+          html += `<div style="background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.3);padding:0.6rem;border-radius:4px;margin-top:0.3rem;font-size:0.88rem;">
+            <strong>${d.api}</strong> (移除於 ${d.removed_in}) ➔ 替換方案: <code>${d.replacement}</code><br>
+            <span style="color:#cbd5e1;">${d.action}</span>
+          </div>`;
+        });
+      }
+
+      html += `<h4 style="color:#fff;margin-top:1rem;">逐步執行 Runbook (直接複製貼上)：</h4>`;
+      (data.runbook || []).forEach(s => {
+        html += `<div style="margin-top:0.6rem;">
+          <strong>${s.step}</strong>
+          <p style="font-size:0.82rem;color:var(--text-muted);">${s.description}</p>
+          <div class="code-container">
+            <button class="copy-btn" onclick="copyCode(this)">複製</button>
+            <code>${s.command}</code>
+          </div>
+        </div>`;
+      });
+
+      html += '</div>';
+      container.innerHTML = html;
+    }
+
+    // Step 1: Parse Nodes Table
+    async function loadSampleNodes() {
+      document.getElementById('input-nodes').value = 
+`NAME                   STATUS   ROLES           AGE    VERSION   INTERNAL-IP    EXTERNAL-IP   OS-IMAGE             KERNEL-VERSION      CONTAINER-RUNTIME
+k8s-control-plane-01   Ready    control-plane   142d   v1.26.2   192.168.10.1   <none>        Ubuntu 22.04.3 LTS   5.15.0-89-generic   containerd://1.6.24
+k8s-worker-01          Ready    worker          142d   v1.26.2   192.168.10.2   <none>        Ubuntu 22.04.3 LTS   5.15.0-89-generic   containerd://1.6.24
+k8s-worker-02          Ready    worker          142d   v1.26.2   192.168.10.3   <none>        Ubuntu 22.04.3 LTS   5.15.0-89-generic   containerd://1.6.24`;
+      parseNodes();
+    }
+
+    async function parseNodes() {
+      const text = document.getElementById('input-nodes').value.trim();
+      if (!text) return;
+
+      try {
+        const res = await fetch('/api/parse-nodes', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ text })
+        });
+        const data = await res.json();
+        const container = document.getElementById('nodes-table-container');
+        let html = '<table class="data-table"><thead><tr><th>節點名稱</th><th>狀態</th><th>角色</th><th>版本</th><th>內部 IP</th></tr></thead><tbody>';
+        (data.nodes || []).forEach(n => {
+          html += `<tr><td><strong>${n.name}</strong></td><td><span class="badge-status badge-normal">${n.status}</span></td><td>${n.roles}</td><td>${n.version}</td><td>${n.internal_ip}</td></tr>`;
+        });
+        html += '</tbody></table>';
+        container.innerHTML = html;
+      } catch (e) {
+        alert('節點剖析失敗: ' + e);
+      }
+    }
+
+    // Certs Doctor
+    async function loadSampleCerts() {
+      const res = await fetch('/api/sample-cert');
+      const data = await res.json();
+      document.getElementById('input-certs').value = data.text;
+      checkCerts();
+    }
+
+    async function checkCerts() {
+      const text = document.getElementById('input-certs').value.trim();
+      if (!text) return;
+      try {
+        const res = await fetch('/api/check-certs', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ text })
+        });
+        const data = await res.json();
+        const container = document.getElementById('certs-result-container');
+        let html = '<table class="data-table"><thead><tr><th>憑證名稱</th><th>到期日</th><th>剩餘時間</th><th>狀態</th></tr></thead><tbody>';
+        (data.certificates || []).forEach(c => {
+          const badge = c.status === 'EXPIRED' ? 'badge-critical' : (c.status === 'WARNING' ? 'badge-warning' : 'badge-normal');
+          html += `<tr><td><strong>${c.name}</strong></td><td>${c.expires}</td><td>${c.residual_time}</td><td><span class="badge-status ${badge}">${c.status}</span></td></tr>`;
+        });
+        html += '</tbody></table>';
+        if (data.recommendations) {
+          html += '<h4 style="margin-top:0.75rem;color:#f59e0b;">一鍵更新憑證指令：</h4>';
+          data.recommendations.forEach(r => {
+            html += `<div class="code-container"><button class="copy-btn" onclick="copyCode(this)">複製</button><code>${r.commands.join('\n')}</code></div>`;
+          });
+        }
+        container.innerHTML = html;
+      } catch (e) {
+        alert('憑證檢驗失敗: ' + e);
+      }
+    }
+
+    // Readyz Doctor
+    async function loadSampleReadyz() {
+      const res = await fetch('/api/sample-readyz');
+      const data = await res.json();
+      document.getElementById('input-readyz').value = data.text;
+      checkReadyz();
+    }
+
+    async function checkReadyz() {
+      const text = document.getElementById('input-readyz').value.trim();
+      if (!text) return;
+      try {
+        const res = await fetch('/api/check-kubeapi', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ text })
+        });
+        const data = await res.json();
+        const container = document.getElementById('readyz-result-container');
+        let html = `<p style="margin-bottom:0.5rem;">整體狀態: <span class="badge-status ${data.overall_status==='HEALTHY'?'badge-normal':'badge-critical'}">${data.overall_status}</span></p>`;
+        html += '<table class="data-table"><thead><tr><th>探針組件</th><th>狀態</th><th>詳情</th></tr></thead><tbody>';
+        (data.analysis || []).forEach(a => {
+          const badge = a.status === 'HEALTHY' ? 'badge-normal' : 'badge-critical';
+          html += `<tr><td><strong>${a.component}</strong></td><td><span class="badge-status ${badge}">${a.status}</span></td><td>${a.detail}</td></tr>`;
+        });
+        html += '</tbody></table>';
+        container.innerHTML = html;
+      } catch (e) {
+        alert('KubeAPI 探針剖析失敗: ' + e);
+      }
+    }
+
+    // Supply Chain Auditor
+    async function loadSampleRequirements() {
+      const res = await fetch('/api/sample-requirements');
+      const data = await res.json();
+      document.getElementById('input-requirements').value = data.text;
+      auditSupplyChain();
+    }
+
+    async function auditSupplyChain() {
+      const text = document.getElementById('input-requirements').value.trim();
+      if (!text) return;
+      try {
+        const res = await fetch('/api/audit-supply-chain', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ text })
+        });
+        const data = await res.json();
+        const container = document.getElementById('supply-chain-results-container');
+        let html = `<p>掃描套件數: ${data.packages_count} ｜ 雜湊鎖定: ${data.hashed_count}</p>`;
+        (data.findings || []).forEach(f => {
+          html += `<div style="background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);padding:0.6rem;border-radius:4px;margin-top:0.4rem;font-size:0.88rem;">
+            <strong style="color:#f87171;">[${f.category}]</strong> 目標: <code>${f.target}</code><br>
+            <span>${f.description}</span>
+          </div>`;
+        });
+        container.innerHTML = html;
+      } catch (e) {
+        alert('供應鏈審計失敗: ' + e);
+      }
+    }
+
+    // Utility: Copy Code
+    function copyCode(btn) {
+      const code = btn.parentElement.querySelector('code');
+      if (code) {
+        navigator.clipboard.writeText(code.innerText.trim());
+        const originalText = btn.textContent;
+        btn.textContent = '已複製!';
+        setTimeout(() => { btn.textContent = originalText; }, 1500);
+      }
+    }
+
+    // Initial Load
+    window.addEventListener('DOMContentLoaded', () => {
+      checkOllama();
+    });
+  </script>
+</body>
+</html>
