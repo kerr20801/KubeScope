@@ -32,6 +32,7 @@ from core.log_analyzer import LogAnalyzer
 from core.infra_doctor import InfraDoctor
 from core.route_tracer import RouteTracer
 from core.supply_chain import SupplyChainAuditor
+from core.yaml_workbench import YAMLWorkbench
 
 PORT = 8930
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -47,6 +48,7 @@ log_analyzer = LogAnalyzer()
 infra_doctor = InfraDoctor()
 route_tracer = RouteTracer()
 supply_chain_auditor = SupplyChainAuditor()
+yaml_workbench = YAMLWorkbench()
 
 class KubeScopeHandler(BaseHTTPRequestHandler):
     def end_headers(self):
@@ -139,6 +141,25 @@ class KubeScopeHandler(BaseHTTPRequestHandler):
                     self._send_json({"text": f.read()})
             else:
                 self._send_json({"error": "sample_vulnerable_requirements.txt not found"}, 404)
+
+        elif path == "/api/sample-etcd":
+            target_path = os.path.join(SAMPLES_DIR, "sample_etcd_status.txt")
+            if os.path.exists(target_path):
+                with open(target_path, "r", encoding="utf-8") as f:
+                    self._send_json({"text": f.read()})
+            else:
+                self._send_json({"error": "sample_etcd_status.txt not found"}, 404)
+
+        elif path == "/api/sample-kubelet":
+            target_path = os.path.join(SAMPLES_DIR, "sample_kubelet_error.txt")
+            if os.path.exists(target_path):
+                with open(target_path, "r", encoding="utf-8") as f:
+                    self._send_json({"text": f.read()})
+            else:
+                self._send_json({"error": "sample_kubelet_error.txt not found"}, 404)
+
+        elif path == "/api/cert-playbook":
+            self._send_json(infra_doctor.get_cert_emergency_playbook())
 
         else:
             self.send_error(404, "Endpoint not found")
@@ -250,6 +271,55 @@ class KubeScopeHandler(BaseHTTPRequestHandler):
         elif path == "/api/audit-container-supply-chain":
             pods = body.get("pods", [])
             res = supply_chain_auditor.audit_container_images(pods)
+            self._send_json(res)
+
+        elif path == "/api/yaml-generate":
+            gen_type = body.get("type", "namespace")
+            if gen_type == "namespace":
+                res = yaml_workbench.generate_namespace(
+                    name=body.get("name", "custom-ns"),
+                    pss_level=body.get("pss_level", "baseline"),
+                    cpu_quota=body.get("cpu_quota", "4"),
+                    mem_quota=body.get("mem_quota", "8Gi")
+                )
+            elif gen_type == "resource_fix":
+                res = yaml_workbench.generate_resource_patch(
+                    deployment_name=body.get("deployment", "payment-processor"),
+                    namespace=body.get("namespace", "default"),
+                    mem_limit=body.get("mem_limit", "1Gi"),
+                    mem_request=body.get("mem_request", "512Mi"),
+                    cpu_limit=body.get("cpu_limit", "1000m"),
+                    cpu_request=body.get("cpu_request", "250m")
+                )
+            elif gen_type == "service_fix":
+                res = yaml_workbench.generate_service_fix(
+                    service_name=body.get("service", "web-portal-svc"),
+                    namespace=body.get("namespace", "default"),
+                    correct_selector_app=body.get("selector_app", "web-frontend"),
+                    service_port=int(body.get("service_port", 80)),
+                    target_port=int(body.get("target_port", 8080))
+                )
+            elif gen_type == "probe_fix":
+                res = yaml_workbench.generate_probe_fix(
+                    container_name=body.get("container", "app"),
+                    port=int(body.get("port", 8080)),
+                    path=body.get("path", "/healthz"),
+                    initial_delay=int(body.get("initial_delay", 15)),
+                    period=int(body.get("period", 10)),
+                    timeout=int(body.get("timeout", 3))
+                )
+            else:
+                res = {"success": False, "error": f"Unknown yaml type: {gen_type}"}
+            self._send_json(res)
+
+        elif path == "/api/check-etcd":
+            raw_text = body.get("text", body.get("raw_text", ""))
+            res = infra_doctor.parse_etcd_health(raw_text)
+            self._send_json(res)
+
+        elif path == "/api/check-kubelet":
+            raw_text = body.get("text", body.get("raw_text", ""))
+            res = infra_doctor.parse_kubelet_diagnostics(raw_text)
             self._send_json(res)
 
         else:

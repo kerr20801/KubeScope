@@ -76,13 +76,13 @@
 
     .nav-tabs {
       display: flex;
-      gap: 0.4rem;
+      gap: 0.35rem;
     }
     .tab-btn {
       background: transparent;
       border: 1px solid transparent;
       color: var(--text-muted);
-      padding: 0.45rem 0.85rem;
+      padding: 0.45rem 0.8rem;
       border-radius: 6px;
       cursor: pointer;
       font-size: 0.92rem;
@@ -219,9 +219,18 @@
       color: #fff;
     }
 
+    .btn-danger {
+      background: #dc2626;
+      color: #fff;
+      border: 1px solid #ef4444;
+    }
+    .btn-danger:hover {
+      background: #b91c1c;
+    }
+
     .btn-sm {
       padding: 0.25rem 0.6rem;
-      font-size: 0.8rem;
+      font-size: 0.82rem;
     }
 
     textarea.input-box {
@@ -433,6 +442,31 @@
       height: 100%;
     }
 
+    /* Form Fields */
+    .form-group {
+      margin-bottom: 0.85rem;
+    }
+    .form-label {
+      display: block;
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      margin-bottom: 0.3rem;
+      font-weight: 600;
+    }
+    .form-control {
+      width: 100%;
+      background: var(--code-bg);
+      border: 1px solid var(--border-color);
+      color: #fff;
+      padding: 0.5rem 0.75rem;
+      border-radius: 6px;
+      font-size: 0.9rem;
+      outline: none;
+    }
+    .form-control:focus {
+      border-color: var(--primary);
+    }
+
     /* Hidden Utility */
     .hidden { display: none !important; }
   </style>
@@ -449,6 +483,7 @@
     <!-- Navigation Tabs -->
     <div class="nav-tabs">
       <button class="tab-btn active" onclick="switchTab('workbench')">🧭 實戰排障操作流</button>
+      <button class="tab-btn" onclick="switchTab('yaml')">🛠️ YAML 修復室</button>
       <button class="tab-btn" onclick="switchTab('routes')">🌐 全鏈路路由拓撲</button>
       <button class="tab-btn" onclick="switchTab('infra')">🔐 控制面與憑證</button>
       <button class="tab-btn" onclick="switchTab('cve')">🛡️ CVE 漏洞掃描</button>
@@ -531,6 +566,18 @@
                 <button class="btn btn-secondary btn-sm" onclick="loadSampleHealthy()">載入健康範例</button>
               </div>
             </div>
+
+            <!-- Namespace Filter Bar -->
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.6rem; background: rgba(255,255,255,0.02); padding: 0.35rem 0.6rem; border-radius: 4px; border: 1px solid var(--border-color);">
+              <div style="display: flex; align-items: center; gap: 0.5rem;">
+                <span style="font-size: 0.85rem; color: var(--text-muted); font-weight: 600;">過濾命名空間 (NS):</span>
+                <select id="namespace-filter-select" onchange="filterPodsByNamespace()" style="background: var(--code-bg); border: 1px solid var(--border-color); color: #fff; padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.85rem; outline: none;">
+                  <option value="ALL">全部命名空間 (All Namespaces)</option>
+                </select>
+              </div>
+              <button class="btn btn-secondary btn-sm" onclick="switchTab('yaml'); selectYamlTemplate('namespace')">➕ 建立新 Namespace</button>
+            </div>
+
             <textarea id="input-pods" class="input-box" placeholder="貼上 `kubectl get pods -A -o wide` 或直接載入事故範例..."></textarea>
             <button class="btn btn-sm" onclick="parsePodsAndDiagnose()">🚀 開始 SRE 智慧會診</button>
             <div id="pods-table-container" style="margin-top: 0.75rem; max-height: 180px; overflow-y: auto;"></div>
@@ -577,6 +624,146 @@
         <div id="diagnosis-issues-container" style="margin-top: 1.25rem;"></div>
       </div>
 
+      <!-- TAB: YAML 快速修復室 (YAML Studio) ⭐ 新增核心功能 -->
+      <div id="tab-yaml" class="tab-pane hidden">
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">🛠️ YAML 修復室 & 自動補丁生成儀 (YAML Studio)</div>
+            <span style="font-size:0.85rem; color:var(--text-muted);">一鍵產生合規 YAML、Before/After 對照與 kubectl apply 指令</span>
+          </div>
+
+          <!-- Template Selector Bar -->
+          <div style="display: flex; gap: 0.5rem; margin-bottom: 1.25rem; flex-wrap: wrap;">
+            <button class="btn btn-sm" id="btn-tpl-namespace" onclick="selectYamlTemplate('namespace')">🏗️ 新增 Namespace (含 PSS 安全規範與配額)</button>
+            <button class="btn btn-secondary btn-sm" id="btn-tpl-resource" onclick="selectYamlTemplate('resource_fix')">🚀 修復 OOM 資源配額 (Bump Limits/Requests)</button>
+            <button class="btn btn-secondary btn-sm" id="btn-tpl-service" onclick="selectYamlTemplate('service_fix')">🔗 修復 Service 選擇器 (解除 503 服務黑洞)</button>
+            <button class="btn btn-secondary btn-sm" id="btn-tpl-probe" onclick="selectYamlTemplate('probe_fix')">🩺 配置健康探針 (Liveness & Readiness)</button>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 360px 1fr; gap: 1.25rem;">
+            <!-- Left: Dynamic Form Controls -->
+            <div style="background: var(--bg-secondary); border: 1px solid var(--border-color); padding: 1rem; border-radius: 6px;">
+              <h4 id="yaml-form-title" style="color: var(--primary); margin-bottom: 0.75rem;">配置參數</h4>
+              
+              <!-- Namespace Form -->
+              <div id="form-namespace" class="yaml-form-section">
+                <div class="form-group">
+                  <label class="form-label">命名空間名稱 (Namespace Name):</label>
+                  <input type="text" id="ns-name-input" class="form-control" value="production-app">
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Pod 安全標準等級 (PSS Level):</label>
+                  <select id="ns-pss-input" class="form-control">
+                    <option value="baseline" selected>Baseline (一般推薦生產規範)</option>
+                    <option value="restricted">Restricted (金融/極限零信任規範)</option>
+                    <option value="privileged">Privileged (特權系統級命名空間)</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label class="form-label">CPU 總限額 (ResourceQuota CPU):</label>
+                  <input type="text" id="ns-cpu-input" class="form-control" value="8">
+                </div>
+                <div class="form-group">
+                  <label class="form-label">記憶體總限額 (ResourceQuota Memory):</label>
+                  <input type="text" id="ns-mem-input" class="form-control" value="16Gi">
+                </div>
+              </div>
+
+              <!-- Resource Fix Form -->
+              <div id="form-resource-fix" class="yaml-form-section hidden">
+                <div class="form-group">
+                  <label class="form-label">目標 Deployment 名稱:</label>
+                  <input type="text" id="res-dep-input" class="form-control" value="payment-processor">
+                </div>
+                <div class="form-group">
+                  <label class="form-label">目標命名空間 (Namespace):</label>
+                  <input type="text" id="res-ns-input" class="form-control" value="production">
+                </div>
+                <div class="form-group">
+                  <label class="form-label">修復後 Memory Limit (上限):</label>
+                  <input type="text" id="res-mem-limit-input" class="form-control" value="1Gi">
+                </div>
+                <div class="form-group">
+                  <label class="form-label">修復後 Memory Request (基本需求):</label>
+                  <input type="text" id="res-mem-req-input" class="form-control" value="512Mi">
+                </div>
+                <div class="form-group">
+                  <label class="form-label">修復後 CPU Limit:</label>
+                  <input type="text" id="res-cpu-limit-input" class="form-control" value="1000m">
+                </div>
+              </div>
+
+              <!-- Service Fix Form -->
+              <div id="form-service-fix" class="yaml-form-section hidden">
+                <div class="form-group">
+                  <label class="form-label">Service 名稱:</label>
+                  <input type="text" id="svc-name-input" class="form-control" value="web-portal-svc">
+                </div>
+                <div class="form-group">
+                  <label class="form-label">命名空間 (Namespace):</label>
+                  <input type="text" id="svc-ns-input" class="form-control" value="production">
+                </div>
+                <div class="form-group">
+                  <label class="form-label">校正後 Pod 選擇器 (app=...):</label>
+                  <input type="text" id="svc-selector-input" class="form-control" value="web-frontend">
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Service Port 監聽埠號:</label>
+                  <input type="number" id="svc-port-input" class="form-control" value="80">
+                </div>
+                <div class="form-group">
+                  <label class="form-label">TargetPort 容器埠號:</label>
+                  <input type="number" id="svc-targetport-input" class="form-control" value="8080">
+                </div>
+              </div>
+
+              <!-- Probe Fix Form -->
+              <div id="form-probe-fix" class="yaml-form-section hidden">
+                <div class="form-group">
+                  <label class="form-label">探針監聽連接埠 (Port):</label>
+                  <input type="number" id="probe-port-input" class="form-control" value="8080">
+                </div>
+                <div class="form-group">
+                  <label class="form-label">健康檢查路徑 (HTTP Path):</label>
+                  <input type="text" id="probe-path-input" class="form-control" value="/healthz">
+                </div>
+                <div class="form-group">
+                  <label class="form-label">初始延遲時間 (initialDelaySeconds):</label>
+                  <input type="number" id="probe-delay-input" class="form-control" value="15">
+                </div>
+                <div class="form-group">
+                  <label class="form-label">輪詢間隔 (periodSeconds):</label>
+                  <input type="number" id="probe-period-input" class="form-control" value="10">
+                </div>
+              </div>
+
+              <button class="btn btn-sm" style="width: 100%; margin-top: 0.5rem;" onclick="generateCurrentYaml()">⚡ 生成修復 YAML 與 CLI</button>
+            </div>
+
+            <!-- Right: Generated YAML & Actionable Output -->
+            <div>
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem;">
+                <span id="yaml-output-badge" class="badge-status badge-normal">YAML 已產生</span>
+                <div style="display: flex; gap: 0.4rem;">
+                  <button class="btn btn-secondary btn-sm" onclick="copyGeneratedYaml()">📋 複製 YAML</button>
+                  <button class="btn btn-secondary btn-sm" onclick="askAiAboutCurrentYaml()">🤖 諮詢 SRE 軍師檢視</button>
+                </div>
+              </div>
+              <p id="yaml-explanation-text" style="font-size: 0.88rem; color: var(--text-muted); margin-bottom: 0.5rem;"></p>
+              <textarea id="yaml-output-box" class="input-box" style="height: 250px;" spellcheck="false"></textarea>
+
+              <div style="margin-top: 0.6rem;">
+                <strong style="font-size: 0.9rem; color: #fff;">一鍵貼回跳板機執行 (kubectl apply)：</strong>
+                <div class="code-container">
+                  <button class="copy-btn" onclick="copyCode(this)">複製</button>
+                  <code id="yaml-kubectl-apply-cmd">cat &lt;&lt;EOF | kubectl apply -f -</code>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <!-- TAB 2: 全鏈路路由拓撲 (Traffic Route Tracer) -->
       <div id="tab-routes" class="tab-pane hidden">
         <div class="card">
@@ -594,16 +781,27 @@
         </div>
       </div>
 
-      <!-- TAB 3: 控制面與憑證 (Infra Doctor) -->
+      <!-- TAB 3: 控制面、憑證、ETCD 與 Kubelet 深度體檢室 ⭐ 升級進化 -->
       <div id="tab-infra" class="tab-pane hidden">
-        <div class="step-grid">
+        <!-- Sub navigation pills for Infra Tools -->
+        <div style="display: flex; gap: 0.5rem; margin-bottom: 1.25rem;">
+          <button class="btn btn-sm" id="subtab-btn-certs" onclick="switchInfraSubtab('certs')">🔑 PKI 憑證審計 & 🚨 過期急救重置手冊</button>
+          <button class="btn btn-secondary btn-sm" id="subtab-btn-etcd" onclick="switchInfraSubtab('etcd')">🗄️ ETCD 深度體檢、空間警報與 Defrag 維護</button>
+          <button class="btn btn-secondary btn-sm" id="subtab-btn-kubelet" onclick="switchInfraSubtab('kubelet')">⚙️ Kubelet 深度除錯 (Swap/Cgroup/驅逐)</button>
+        </div>
+
+        <!-- Infra Subtab 1: PKI 憑證到期與過期急救手冊 -->
+        <div id="infra-subtab-certs" class="step-grid">
           <div class="card">
             <div class="card-header">
               <div class="card-title">🔑 Kubeadm PKI 憑證到期審計</div>
               <button class="btn btn-secondary btn-sm" onclick="loadSampleCerts()">載入憑證範例</button>
             </div>
             <textarea id="input-certs" class="input-box" placeholder="貼上 `kubeadm certs check-expiration` 輸出..."></textarea>
-            <button class="btn btn-sm" onclick="checkCerts()">驗證憑證有效期限</button>
+            <div style="display:flex; gap:0.5rem;">
+              <button class="btn btn-sm" onclick="checkCerts()">驗證憑證有效期限</button>
+              <button class="btn btn-danger btn-sm" onclick="showCertEmergencyPlaybook()">🚨 獲取憑證全面過期急救重置手冊</button>
+            </div>
             <div id="certs-result-container" style="margin-top: 0.75rem;"></div>
           </div>
 
@@ -616,6 +814,37 @@
             <button class="btn btn-sm" onclick="checkReadyz()">剖析內部組件狀態</button>
             <div id="readyz-result-container" style="margin-top: 0.75rem;"></div>
           </div>
+        </div>
+
+        <!-- Emergency Cert Reset Modal/Card Area -->
+        <div id="cert-emergency-playbook-box" class="card hidden" style="margin-top: 1.25rem; border-color: var(--critical);"></div>
+
+        <!-- Infra Subtab 2: ETCD 深度體檢與維護 -->
+        <div id="infra-subtab-etcd" class="card hidden">
+          <div class="card-header">
+            <div class="card-title">🗄️ ETCD 深度體檢與空間滿載警報維護 (Defrag & Compaction)</div>
+            <button class="btn btn-secondary btn-sm" onclick="loadSampleEtcd()">載入 ETCD 示範狀態</button>
+          </div>
+          <p style="font-size:0.88rem; color:var(--text-muted); margin-bottom:0.5rem;">
+            貼上 `etcdctl endpoint health` 或 `etcdctl endpoint status --write-out=table` 輸出，秒級評估延遲、DB容量與 NOSPACE 警報：
+          </p>
+          <textarea id="input-etcd" class="input-box" placeholder="貼入 etcdctl 終端機狀態輸出..."></textarea>
+          <button class="btn btn-sm" onclick="checkEtcdHealth()">🔍 體檢 ETCD 健康度</button>
+          <div id="etcd-results-container" style="margin-top: 1rem;"></div>
+        </div>
+
+        <!-- Infra Subtab 3: Kubelet 深度除錯 -->
+        <div id="infra-subtab-kubelet" class="card hidden">
+          <div class="card-header">
+            <div class="card-title">⚙️ Kubelet 服務崩潰與節點壓力秒級法醫 (Swap/Cgroup/Eviction)</div>
+            <button class="btn btn-secondary btn-sm" onclick="loadSampleKubelet()">載入 Kubelet 異常日誌 (Swap報錯)</button>
+          </div>
+          <p style="font-size:0.88rem; color:var(--text-muted); margin-bottom:0.5rem;">
+            貼上 `systemctl status kubelet` 或 `journalctl -u kubelet -n 50 --no-pager` 輸出：
+          </p>
+          <textarea id="input-kubelet" class="input-box" placeholder="貼入 kubelet 服務日誌..."></textarea>
+          <button class="btn btn-sm" onclick="checkKubeletDiagnostics()">🩺 剖析 Kubelet 啟動失敗原因</button>
+          <div id="kubelet-results-container" style="margin-top: 1rem;"></div>
         </div>
       </div>
 
@@ -694,6 +923,8 @@
     let selectedPod = null;
     let chatHistory = [];
     let baseFontSize = 15;
+    let allParsedPods = [];
+    let currentYamlTemplate = 'namespace';
 
     // Font Zoom Controller
     function changeFontSize(delta) {
@@ -715,7 +946,24 @@
 
       if (tabId === 'routes') {
         renderTopology();
+      } else if (tabId === 'yaml') {
+        generateCurrentYaml();
       }
+    }
+
+    // Infra Subtab Switcher
+    function switchInfraSubtab(subtabId) {
+      document.querySelectorAll('[id^="subtab-btn-"]').forEach(b => {
+        b.className = 'btn btn-secondary btn-sm';
+      });
+      document.getElementById('subtab-btn-' + subtabId).className = 'btn btn-sm';
+
+      document.getElementById('infra-subtab-certs').classList.add('hidden');
+      document.getElementById('infra-subtab-etcd').classList.add('hidden');
+      document.getElementById('infra-subtab-kubelet').classList.add('hidden');
+
+      const target = document.getElementById('infra-subtab-' + subtabId);
+      if (target) target.classList.remove('hidden');
     }
 
     // Check Ollama Status
@@ -799,9 +1047,10 @@
       const cveSum = data.cve_summary || {};
       document.getElementById('stat-cve-count').textContent = cveSum.total_cves || 0;
 
-      // Render Pods Table
-      const pods = (data.cluster_model && data.cluster_model.pods) || [];
-      renderPodsTable(pods);
+      // Render Pods Table with Namespace Filtering
+      allParsedPods = (data.cluster_model && data.cluster_model.pods) || [];
+      populateNamespaceFilter(allParsedPods);
+      renderPodsTable(allParsedPods);
 
       // Render Issues
       renderIssuesCards(diag.issues || []);
@@ -810,11 +1059,34 @@
       initProactiveSreBriefing(data);
     }
 
+    // Populate Namespace Filter Dropdown
+    function populateNamespaceFilter(pods) {
+      const select = document.getElementById('namespace-filter-select');
+      const namespaces = Array.from(new Set(pods.map(p => p.namespace || 'default'))).sort();
+      select.innerHTML = '<option value="ALL">全部命名空間 (All Namespaces)</option>';
+      namespaces.forEach(ns => {
+        const opt = document.createElement('option');
+        opt.value = ns;
+        opt.textContent = `${ns} (${pods.filter(p => p.namespace === ns).length})`;
+        select.appendChild(opt);
+      });
+    }
+
+    function filterPodsByNamespace() {
+      const selectedNs = document.getElementById('namespace-filter-select').value;
+      if (selectedNs === 'ALL') {
+        renderPodsTable(allParsedPods);
+      } else {
+        const filtered = allParsedPods.filter(p => p.namespace === selectedNs);
+        renderPodsTable(filtered);
+      }
+    }
+
     // Render Pods Table
     function renderPodsTable(pods) {
       const container = document.getElementById('pods-table-container');
       if (!pods.length) {
-        container.innerHTML = '<p style="color:var(--text-muted);font-size:0.85rem;">尚無 Pods 遙測資料</p>';
+        container.innerHTML = '<p style="color:var(--text-muted);font-size:0.85rem;">尚無符合條件之 Pods 遙測資料</p>';
         return;
       }
 
@@ -843,6 +1115,10 @@
       document.getElementById('selected-pod-badge').textContent = `${ns}/${pod}`;
       document.getElementById('cmd-previous').textContent = `kubectl logs -n ${ns} ${pod} --previous --tail=200`;
       document.getElementById('cmd-describe').textContent = `kubectl describe pod -n ${ns} ${pod}`;
+
+      // Also auto-populate YAML Studio resource fix fields
+      document.getElementById('res-dep-input').value = pod.replace(/-[a-z0-9]+-[a-z0-9]+$/, '');
+      document.getElementById('res-ns-input').value = ns;
     }
 
     // Render Issues Cards
@@ -862,7 +1138,11 @@
               <span class="badge-status ${badgeClass}">${i.severity}</span>
               <strong>${i.title}</strong>
             </div>
-            <button class="btn btn-secondary btn-sm" onclick="askAiAboutIssue('${i.title}', '${i.target}')">🤖 呼叫 SRE 軍師推演</button>
+            <div style="display:flex;gap:0.4rem;">
+              ${i.category === 'OOMKILLED' ? `<button class="btn btn-secondary btn-sm" onclick="jumpToOomFix('${i.target}')">🛠️ 產生修復 YAML</button>` : ''}
+              ${i.category === 'NETWORK_BLACKHOLE' ? `<button class="btn btn-secondary btn-sm" onclick="jumpToServiceFix('${i.target}')">🛠️ 產生修復 YAML</button>` : ''}
+              <button class="btn btn-secondary btn-sm" onclick="askAiAboutIssue('${i.title}', '${i.target}')">🤖 呼叫 SRE 軍師推演</button>
+            </div>
           </div>
           <p style="font-size:0.92rem; margin-bottom:0.4rem;"><strong>事故根因：</strong>${i.cause}</p>
           <p style="font-size:0.88rem; color:var(--text-muted); margin-bottom:0.5rem;"><strong>修復指引：</strong>${i.recommendation || ''}</p>
@@ -875,6 +1155,247 @@
           `).join('') : ''}
         </div>`;
       });
+      container.innerHTML = html;
+    }
+
+    // YAML Studio Operations
+    function selectYamlTemplate(tpl) {
+      currentYamlTemplate = tpl;
+      document.querySelectorAll('[id^="btn-tpl-"]').forEach(b => b.className = 'btn btn-secondary btn-sm');
+      document.getElementById('btn-tpl-' + (tpl === 'resource_fix' ? 'resource' : (tpl === 'service_fix' ? 'service' : (tpl === 'probe_fix' ? 'probe' : 'namespace')))).className = 'btn btn-sm';
+
+      document.querySelectorAll('.yaml-form-section').forEach(s => s.classList.add('hidden'));
+      document.getElementById('form-' + tpl.replace('_', '-')).classList.remove('hidden');
+
+      const titles = {
+        'namespace': '配置新 Namespace 參數',
+        'resource_fix': '配置 OOM 記憶體/CPU 修復參數',
+        'service_fix': '配置 Service 選擇器校正參數',
+        'probe_fix': '配置健康探針 (Probes) 參數'
+      };
+      document.getElementById('yaml-form-title').textContent = titles[tpl] || '配置參數';
+      generateCurrentYaml();
+    }
+
+    async function generateCurrentYaml() {
+      let payload = { type: currentYamlTemplate };
+
+      if (currentYamlTemplate === 'namespace') {
+        payload.name = document.getElementById('ns-name-input').value.trim();
+        payload.pss_level = document.getElementById('ns-pss-input').value;
+        payload.cpu_quota = document.getElementById('ns-cpu-input').value.trim();
+        payload.mem_quota = document.getElementById('ns-mem-input').value.trim();
+      } else if (currentYamlTemplate === 'resource_fix') {
+        payload.deployment = document.getElementById('res-dep-input').value.trim();
+        payload.namespace = document.getElementById('res-ns-input').value.trim();
+        payload.mem_limit = document.getElementById('res-mem-limit-input').value.trim();
+        payload.mem_request = document.getElementById('res-mem-req-input').value.trim();
+        payload.cpu_limit = document.getElementById('res-cpu-limit-input').value.trim();
+      } else if (currentYamlTemplate === 'service_fix') {
+        payload.service = document.getElementById('svc-name-input').value.trim();
+        payload.namespace = document.getElementById('svc-ns-input').value.trim();
+        payload.selector_app = document.getElementById('svc-selector-input').value.trim();
+        payload.service_port = document.getElementById('svc-port-input').value.trim();
+        payload.target_port = document.getElementById('svc-targetport-input').value.trim();
+      } else if (currentYamlTemplate === 'probe_fix') {
+        payload.port = document.getElementById('probe-port-input').value.trim();
+        payload.path = document.getElementById('probe-path-input').value.trim();
+        payload.initial_delay = document.getElementById('probe-delay-input').value.trim();
+        payload.period = document.getElementById('probe-period-input').value.trim();
+      }
+
+      try {
+        const res = await fetch('/api/yaml-generate', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        document.getElementById('yaml-output-box').value = data.yaml || '';
+        document.getElementById('yaml-explanation-text').textContent = data.explanation || '';
+        document.getElementById('yaml-kubectl-apply-cmd').textContent = data.kubectl_command || `cat <<EOF | kubectl apply -f -\n${data.yaml}\nEOF`;
+      } catch (e) {
+        alert('生成 YAML 失敗: ' + e);
+      }
+    }
+
+    function copyGeneratedYaml() {
+      const box = document.getElementById('yaml-output-box');
+      navigator.clipboard.writeText(box.value);
+      alert('修復 YAML 已複製至剪貼簿！');
+    }
+
+    function jumpToOomFix(target) {
+      switchTab('yaml');
+      selectYamlTemplate('resource_fix');
+      const parts = target.split('/');
+      if (parts.length === 2) {
+        document.getElementById('res-ns-input').value = parts[0];
+        document.getElementById('res-dep-input').value = parts[1].replace(/-[a-z0-9]+-[a-z0-9]+$/, '');
+      }
+      generateCurrentYaml();
+    }
+
+    function jumpToServiceFix(target) {
+      switchTab('yaml');
+      selectYamlTemplate('service_fix');
+      const parts = target.split('/');
+      if (parts.length === 2) {
+        document.getElementById('svc-ns-input').value = parts[0];
+        document.getElementById('svc-name-input').value = parts[1];
+      }
+      generateCurrentYaml();
+    }
+
+    function askAiAboutCurrentYaml() {
+      const yaml = document.getElementById('yaml-output-box').value;
+      const query = `請檢視以下修復 YAML 是否合規安全，並說明套用後的影響：\n\`\`\`yaml\n${yaml}\n\`\`\``;
+      appendChatMessage('user', query);
+      sendChatMessageDirect(query);
+    }
+
+    // Emergency Cert Reset Playbook
+    async function showCertEmergencyPlaybook() {
+      const box = document.getElementById('cert-emergency-playbook-box');
+      box.classList.remove('hidden');
+
+      try {
+        const res = await fetch('/api/cert-playbook');
+        const data = await res.json();
+
+        let html = `
+          <div class="card-header">
+            <h3 style="color:#ef4444;">${data.title}</h3>
+            <button class="btn btn-secondary btn-sm" onclick="document.getElementById('cert-emergency-playbook-box').classList.add('hidden')">收合手冊</button>
+          </div>
+          <p style="font-size:0.9rem; color:#f87171; margin-bottom:1rem;"><strong>觸發情境：</strong>${data.scenario}</p>
+        `;
+
+        data.steps.forEach(s => {
+          html += `
+            <div style="margin-bottom:0.85rem; background:rgba(0,0,0,0.25); padding:0.75rem; border-radius:6px; border:1px solid #334155;">
+              <strong style="color:#38bdf8;">${s.step}</strong>
+              <p style="font-size:0.82rem; color:var(--text-muted); margin:0.25rem 0;">${s.note}</p>
+              <div class="code-container">
+                <button class="copy-btn" onclick="copyCode(this)">複製</button>
+                <code>${s.command}</code>
+              </div>
+            </div>
+          `;
+        });
+
+        box.innerHTML = html;
+        box.scrollIntoView({ behavior: 'smooth' });
+      } catch (e) {
+        alert('載入急救手冊失敗: ' + e);
+      }
+    }
+
+    // ETCD Health Checker
+    async function loadSampleEtcd() {
+      const res = await fetch('/api/sample-etcd');
+      const data = await res.json();
+      document.getElementById('input-etcd').value = data.text;
+      checkEtcdHealth();
+    }
+
+    async function checkEtcdHealth() {
+      const text = document.getElementById('input-etcd').value.trim();
+      if (!text) return;
+
+      try {
+        const res = await fetch('/api/check-etcd', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ text })
+        });
+        const data = await res.json();
+        renderEtcdResults(data);
+      } catch (e) {
+        alert('ETCD 體檢失敗: ' + e);
+      }
+    }
+
+    function renderEtcdResults(data) {
+      const container = document.getElementById('etcd-results-container');
+      const badge = data.overall_status === 'HEALTHY' ? 'badge-normal' : 'badge-critical';
+
+      let html = `
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.75rem;">
+          <div>整體狀態: <span class="badge-status ${badge}">${data.overall_status}</span></div>
+          <div style="font-size:0.9rem; color:var(--text-muted);">偵測資料庫容量: <strong style="color:#fff;">${data.db_size_mb || 0} MB</strong></div>
+        </div>
+      `;
+
+      if (data.has_nospace_alarm) {
+        html += `<div style="background:var(--critical-bg); border:1px solid rgba(239,68,68,0.4); padding:0.6rem; border-radius:4px; margin-bottom:0.75rem; color:#f87171;">
+          🚨 警告：檢測到 ETCD 儲存空間滿載警報 (NOSPACE)！APIServer 將拒絕所有寫入操作，請立即依下方步驟執行歷史版本壓縮與 Defrag！
+        </div>`;
+      }
+
+      if (data.endpoints && data.endpoints.length) {
+        html += '<table class="data-table"><thead><tr><th>節點端點</th><th>狀態</th><th>回應延遲 (Commit Latency)</th></tr></thead><tbody>';
+        data.endpoints.forEach(ep => {
+          html += `<tr><td>${ep.endpoint}</td><td><span class="badge-status ${ep.status==='HEALTHY'?'badge-normal':'badge-critical'}">${ep.status}</span></td><td>${ep.latency_ms} ms</td></tr>`;
+        });
+        html += '</tbody></table>';
+      }
+
+      if (data.maintenance_commands && data.maintenance_commands.length) {
+        html += `<h4 style="margin-top:1rem; color:#38bdf8;">🛠️ ETCD 空間滿載解除與碎片維護標準指令包：</h4>`;
+        html += `<div class="code-container"><button class="copy-btn" onclick="copyCode(this)">複製全部</button><code>${data.maintenance_commands.join('\n')}</code></div>`;
+      }
+
+      container.innerHTML = html;
+    }
+
+    // Kubelet Diagnostics
+    async function loadSampleKubelet() {
+      const res = await fetch('/api/sample-kubelet');
+      const data = await res.json();
+      document.getElementById('input-kubelet').value = data.text;
+      checkKubeletDiagnostics();
+    }
+
+    async function checkKubeletDiagnostics() {
+      const text = document.getElementById('input-kubelet').value.trim();
+      if (!text) return;
+
+      try {
+        const res = await fetch('/api/check-kubelet', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ text })
+        });
+        const data = await res.json();
+        renderKubeletResults(data);
+      } catch (e) {
+        alert('Kubelet 除錯失敗: ' + e);
+      }
+    }
+
+    function renderKubeletResults(data) {
+      const container = document.getElementById('kubelet-results-container');
+      if (data.is_healthy) {
+        container.innerHTML = '<p style="color:var(--success); margin-top:0.5rem;">🟢 Kubelet 服務運行正常，未檢測到 Swap 衝突、Cgroup 錯配或節點壓力驅逐！</p>';
+        return;
+      }
+
+      let html = `<div style="margin-top:0.5rem;"><h4 style="color:#f87171; margin-bottom:0.5rem;">檢測到 ${data.issues_count} 項 Kubelet 崩潰/驅逐異常：</h4>`;
+      data.issues.forEach(iss => {
+        html += `
+          <div style="background:#1e293b; border:1px solid #334155; padding:0.85rem; border-radius:6px; margin-bottom:0.75rem; border-left:4px solid var(--critical);">
+            <strong style="color:#f87171; font-size:1rem;">${iss.title}</strong>
+            <p style="font-size:0.88rem; color:#cbd5e1; margin:0.3rem 0;"><strong>根因剖析：</strong>${iss.cause}</p>
+            <p style="font-size:0.85rem; color:var(--text-muted);"><strong>處方解法：</strong>${iss.solution}</p>
+            <div class="code-container">
+              <button class="copy-btn" onclick="copyCode(this)">複製</button>
+              <code>${iss.command}</code>
+            </div>
+          </div>
+        `;
+      });
+      html += '</div>';
       container.innerHTML = html;
     }
 
@@ -892,7 +1413,9 @@
         issues.slice(0, 3).forEach((iss, idx) => {
           briefing += `${idx + 1}. **[${iss.severity}]** ${iss.title} (\`${iss.target}\`)\n`;
         });
-        briefing += `\n**建議下一動**：請在左側點選目標 Pod 複製 \`--previous\` 取證神鑰匙，調閱死前日誌貼入「第 4 動」深度切片！`;
+        briefing += `\n**建議下一動**：\n` +
+                    `- 若為 OOMKilled，可直接點擊故障卡片上的 **【🛠️ 產生修復 YAML】** 進入 YAML Studio 自動調高 Limit 配額！\n` +
+                    `- 或點選目標 Pod 複製 \`--previous\` 取證神鑰匙，調閱死前日誌貼入「第 4 動」深度切片！`;
       } else {
         briefing += `🟢 **全叢集無任何崩潰與黑洞事故**，各命名空間 Pods 運作健康！`;
       }
@@ -916,7 +1439,7 @@
         .replace(/### (.*?)\n/g, '<h4 style="margin:0.4rem 0;color:var(--primary);">$1</h4>')
         .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
         .replace(/`([^`]+)`/g, '<code style="background:rgba(255,255,255,0.1);padding:0.15rem 0.35rem;border-radius:3px;">$1</code>')
-        .replace(/```bash([\s\S]*?)```/g, '<div class="code-container"><button class="copy-btn" onclick="copyCode(this)">複製</button><code>$1</code></div>')
+        .replace(/```(?:bash|yaml|sh)?([\s\S]*?)```/g, '<div class="code-container"><button class="copy-btn" onclick="copyCode(this)">複製</button><code>$1</code></div>')
         .replace(/\n/g, '<br>');
     }
 
@@ -1077,7 +1600,6 @@ panic: failed to acquire database lock within deadline`;
       }
 
       const width = svg.clientWidth || 800;
-      const startX = 60;
       const ingX = width * 0.25;
       const svcX = width * 0.55;
       const podX = width * 0.82;
@@ -1277,7 +1799,7 @@ k8s-worker-02          Ready    worker          142d   v1.26.2   192.168.10.3   
         });
         html += '</tbody></table>';
         if (data.recommendations) {
-          html += '<h4 style="margin-top:0.75rem;color:#f59e0b;">一鍵更新憑證指令：</h4>';
+          html += '<h4 style="margin-top:0.75rem;color:#f59e0b;">標準控制面展期指令：</h4>';
           data.recommendations.forEach(r => {
             html += `<div class="code-container"><button class="copy-btn" onclick="copyCode(this)">複製</button><code>${r.commands.join('\n')}</code></div>`;
           });

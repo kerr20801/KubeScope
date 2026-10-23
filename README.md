@@ -34,12 +34,14 @@
 
 ---
 
-## 🚀 六大核心功能模組矩陣
+## 🚀 八大核心功能模組矩陣
 
 ### 模組 1：🧭 實戰排障操作流四部曲 (Interactive Troubleshooting Workbench)
 手把手引導你完成標準 SRE 排查流程：
 * **第 1 動：檢查節點健康度 (`kubectl get nodes -o wide`)**：解析節點 Ready 狀態、OS 系統與 Kubelet 版本。
-* **第 2 動：篩查命名空間 Pods (`kubectl get pods -A -o wide`)**：貼上終端機文字表格，自動標示 🟢 正常、🔴 CrashLoopBackOff / Error、🟡 Pending、`Init:0/1` 卡死與 `Evicted` 殘留。點選異常 Pod 即刻鎖定目標！
+* **第 2 動：篩查命名空間 Pods (`kubectl get pods -A -o wide`)**：貼上終端機文字表格，自動標示 🟢 正常、🔴 CrashLoopBackOff / Error、🟡 Pending、`Init:0/1` 卡死與 `Evicted` 殘留。
+  * 🏷️ **Namespace 智慧過濾**：支援下拉選單即時依命名空間篩選 Pods，並提供 **`➕ 建立新 Namespace`** 快捷入口。
+  * 點選異常 Pod 即刻鎖定目標並自動產生精準排查指令！
 * **第 3 動：智能組裝取證神鑰匙**：
   * 🔑 **撈取死亡遺言 (90% 人都不知道)**：`kubectl logs -n <ns> <pod> --previous --tail=200`
   * 🔑 **InitContainer 卡死撈取**：`kubectl logs -n <ns> <pod> -c <init-container>`
@@ -55,19 +57,42 @@
 
 ### 模組 3：🔐 控制面憑證、KubeAPI 探針與 IPAM 健檢 (Infra Doctor)
 * **Kubeadm PKI 憑證壽命審計 (`kubeadm certs check-expiration`)**：查驗 `admin.conf`、`apiserver` 等憑證，警示 30 天內臨期憑證並提供一鍵更新指令 (`kubeadm certs renew all`)。
+* **憑證過期災難還原手冊 (Emergency Cert Recovery Playbook)**：針對憑證已完全過期、`kubectl` 斷線拒絕連線 (`x509: certificate has expired`) 的絕境，提供純本機端 7 步驟搶救指南（備份 PKI、重新簽署、產出 kubeconfig、靜態 Pod 重啟）。
 * **Kube-APIServer `/readyz` 深度狀態剖析**：深度檢驗 etcd 寫入延遲逾時 (>100ms) 與 Webhook 卡死阻塞。
 * **IPAM 子網耗盡與 CoreDNS 常備排障清單**：預防 `no IP addresses available in range` 與 `ndots:5` 延遲陷阱。
 
-### 模組 4：🛡️ K8s 版本與組件 CVE 漏洞掃描儀 (CVE Security Scanner)
+### 模組 4：🩺 ETCD 深度體檢與 Kubelet 故障排除 (ETCD & Kubelet Diagnostics)
+* **ETCD 深度體檢與維護命令組裝**：
+  * 解析端點健康狀態、Leader 角色變更與 Commit 寫入延遲 (>100ms 磁碟 I/O 警示)。
+  * 監控 DB 儲存空間 (DB Size) 與 `NOSPACE` 配額耗盡報警。
+  * 自動生成四大維護安全指令：**etcdctl 快照備份**、**資料壓縮 (compact)**、**碎片重整 (defrag)** 與 **解除警報 (alarm disarm)**。
+* **Kubelet 系統服務深度除錯**：
+  * 剖析 `journalctl -u kubelet` 或 `systemctl status kubelet` 日誌。
+  * 精準捕捉 **Swap 開啟致命拒絕** (`Running with swap on is not supported`)。
+  * 診斷 **Cgroup Driver 不相容** (`systemd` vs `cgroupfs`)。
+  * 識別 **NodePressure 節點資源耗盡驅逐** (DiskPressure / MemoryPressure Evictions)。
+
+### 模組 5：🛠️ YAML 修復室與安全 Namespace 建立 (YAML Studio & Namespace Manager)
+* **安全 Namespace 規範生成器**：
+  * 一鍵產出符合 Kubernetes 官方 **Pod Security Standards (PSS)** 規範的命名空間 YAML（`baseline` 或 `restricted`）。
+  * 自動附帶 **ResourceQuota**（防記憶體與 CPU 資源掠奪）與 **LimitRange**（預設與上限防護）。
+* **OOMKilled 資源補丁 (`Resource Limit Bump Patch`)**：
+  * 一鍵產出拉高 Memory/CPU Limits 的 Patch YAML 與 `kubectl patch deployment` 即用指令。
+* **Service 標籤懸空修復 (`Selector Fix`)**：
+  * 快速比對 Pod 實際標籤，一鍵校正 Service 選擇器，立即解除 503 服務黑洞。
+* **探針初始延遲修復 (`Probe Fix`)**：
+  * 針對啟動慢但探針太快打死的容器，自動生成合理 `initialDelaySeconds` 與 `failureThreshold` 補丁。
+
+### 模組 6：🛡️ K8s 版本與組件 CVE 漏洞掃描儀 (CVE Security Scanner)
 * **內建 Air-Gapped 離線高危 CVE 資料庫**：涵蓋 CVE-2024-3177、CVE-2023-3676 (Windows Kubelet 提權)、CVE-2023-5528、CVE-2018-1002105 (神級遠端代碼執行) 等。
 * **智慧版本比對**：輸入版本即刻輸出受影響漏洞清單、CVSS 風險評分與官方建議修補版本。
 
-### 模組 5：🗺️ 升版教學與平滑導航儀 (Upgrade Advisor & Playbook)
+### 模組 7：🗺️ 升版教學與平滑導航儀 (Upgrade Advisor & Playbook)
 * **跨版本跳級防呆 (Version Hopping Guard)**：自動推算多階段升級路徑（例如：`v1.24.2 ➔ v1.25.16 ➔ v1.26.15 ➔ v1.27.0`），禁止跨版直升！
 * **已廢棄 API 移除預警 (API Deprecation Audit)**：偵測目標版本移除的廢棄 API（如 v1.25 移除 PSP），提供 YAML 遷移對照。
 * **逐步操作手冊 (Step-by-Step Runbook)**：完整包含 etcd 災難還原快照與平滑升級指令包。
 
-### 模組 6：🤖 本地 SRE 隨身軍師 (AI Copilot with Local Ollama)
+### 模組 8：🤖 本地 SRE 隨身軍師 (AI Copilot with Local Ollama)
 * **分析完畢主動戰報（Proactive Briefing）**：一鍵分析後 Copilot 第一時間主動發布 SRE 戰情速報，無須手動貼文字！
 * **卡片一鍵呼叫 AI 深入推演**：點擊異常 Pod 或 Service 卡片直接帶入上下文開始推演。
 * **連續多輪上下文記憶 (Multi-Turn Continuous Memory)**：保留全機遙測快照 + 最近 4 輪 Q&A 一問一答，連續追問絕不失憶！
@@ -128,7 +153,8 @@ KubeScope/
   ├── core/
   │    ├── parser.py           # K8s 表格、describe 與日誌文字正則剖析器
   │    ├── route_tracer.py     # 全鏈路路由拓撲 (Ingress➔Service➔Endpoints➔Pods) 透視
-  │    ├── infra_doctor.py     # 憑證到期審計、KubeAPI 探針、PodCIDR 耗盡與 CoreDNS
+  │    ├── infra_doctor.py     # 憑證到期審計、ETCD 體檢、Kubelet 故障排除與災難手冊
+  │    ├── yaml_workbench.py   # YAML 修復室 (PSS 安全 Namespace、OOM 補丁、選擇器與探針校正)
   │    ├── log_analyzer.py     # 深度日誌法醫、致命錯誤行切片與白話翻譯引擎
   │    ├── diagnostician.py    # Pod 深度法醫(Init/探針/Evicted)、流量黑洞與反模式引擎
   │    ├── cve_scanner.py      # K8s 離線 CVE 漏洞庫與語意版本比對引擎
@@ -136,19 +162,21 @@ KubeScope/
   │    ├── supply_chain.py     # 依賴包仿冒 (Typosquatting) 與容器特權越權審計儀
   │    └── llm_gateway.py      # 地端 Ollama 串接、多輪記憶與離線 SRE 專家決策庫
   ├── web/
-  │    └── index.html          # 現代化純前端面板 (操作流 + 路由拓撲 + 憑證 + CVE + 升級 + AI 隨身軍師)
+  │    └── index.html          # 現代化純前端面板 (操作流 + 路由拓撲 + 憑證/ETCD/Kubelet + YAML 修復室 + AI 軍師)
   ├── samples/
   │    ├── sample_cluster_issues.json           # 實戰綜合故障事故範例 (OOM + Crash + 服務黑洞)
   │    ├── sample_healthy_cluster.json          # 正常健康叢集 (100分演示)
   │    ├── sample_cve_legacy.json               # 老舊叢集 (含 CVE 與廢棄 API 樣本)
   │    ├── sample_broken_routes.json            # 路由斷鏈示範包 (選擇器懸空 + 探針失敗)
   │    ├── sample_kubeadm_certs.txt             # kubeadm 憑證到期範例
+  │    ├── sample_etcd_status.txt               # ETCD endpoint health 與 status 狀態範例
+  │    ├── sample_kubelet_error.txt             # Kubelet Swap 與 Cgroup 報錯範例
   │    ├── sample_readyz.txt                    # /readyz 內部探針失敗範例
   │    └── sample_vulnerable_requirements.txt   # 惡意仿冒套件與浮動版本範例
   ├── server.py                # 零依賴 Python RESTful API 伺服器 (埠號 8930，支援全平台)
-  ├── test_engine.py           # 自動化迴歸測試套件 (涵蓋法醫診斷、CVE、升級推算、供應鏈)
+  ├── test_engine.py           # 自動化迴歸測試套件 (涵蓋法醫診斷、CVE、升級推算、供應鏈、YAML、ETCD)
   ├── verify_integrity.py      # SHA-256 全文代碼防偽與防竄改驗證儀
-  ├── SHA256SUMS.txt           # 官方加密雜湊簽名清單 (27 個檔案 100% 通過)
+  ├── SHA256SUMS.txt           # 官方加密雜湊簽名清單 (防竄改白名單)
   ├── launcher.ps1             # Windows PowerShell 環境檢查與啟動引導 (支援 winget 安裝)
   ├── 啟動服務.bat              # Windows 滑鼠雙擊極速啟動
   ├── run.sh                   # macOS / Linux 一鍵極速啟動腳本

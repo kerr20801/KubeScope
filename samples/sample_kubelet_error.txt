@@ -1,0 +1,10 @@
+● kubelet.service - kubelet: The Kubernetes Node Agent
+     Loaded: loaded (/lib/systemd/system/kubelet.service; enabled; vendor preset: enabled)
+     Drop-In: /etc/systemd/system/kubelet.service.d
+              └─10-kubeadm.conf
+     Active: activating (auto-restart) (Result: exit-code) since Wed 2026-10-21 08:14:22 UTC; 2s ago
+       Docs: https://kubernetes.io/docs/home/
+    Process: 28419 ExecStart=/usr/bin/kubelet $KUBELET_KUBECONFIG_ARGS $KUBELET_CONFIG_ARGS $KUBELET_KUBEADM_ARGS $KUBELET_EXTRA_ARGS (code=exited, status=1/FAILURE)
+   Main PID: 28419 (code=exited, status=1/FAILURE)
+
+Oct 21 08:14:22 k8s-worker-01 kubelet[28419]: F1021 08:14:22.419201   28419 server.go:274] "Failed to run kubelet" err="running with swap on is not supported, please disable swap! or set --fail-swap-on flag to false. /proc/swaps has entries"
