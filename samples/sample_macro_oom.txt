@@ -1,0 +1,26 @@
+$ kubectl get nodes -o wide
+NAME               STATUS   ROLES           AGE    VERSION   INTERNAL-IP    EXTERNAL-IP   OS-IMAGE             KERNEL-VERSION      CONTAINER-RUNTIME
+k8s-master-01      Ready    control-plane   180d   v1.26.2   192.168.10.11  <none>        Ubuntu 22.04.2 LTS   5.15.0-72-generic   containerd://1.6.20
+k8s-worker-01      Ready    <none>          180d   v1.26.2   192.168.10.21  <none>        Ubuntu 22.04.2 LTS   5.15.0-72-generic   containerd://1.6.20
+k8s-worker-02      Ready    <none>          180d   v1.26.2   192.168.10.22  <none>        Ubuntu 22.04.2 LTS   5.15.0-72-generic   containerd://1.6.20
+
+$ kubectl get pods -A -o wide
+NAMESPACE     NAME                               READY   STATUS       RESTARTS       AGE   IP            NODE
+production    payment-processor-78cfbb88b-x7kqw  0/1     OOMKilled    4 (2m ago)     2d    10.244.1.42   k8s-worker-01
+production    checkout-frontend-6b459c5d7-vnm8s  1/1     Running      0              5d    10.244.1.44   k8s-worker-02
+kube-system   coredns-787d4945fb-2k89p           1/1     Running      0              180d  10.244.0.2    k8s-master-01
+
+$ kubectl get svc -A
+NAMESPACE     NAME                 TYPE        CLUSTER-IP      EXTERNAL-IP   PORT(S)                  AGE
+production    payment-processor    ClusterIP   10.96.120.45    <none>        8080/TCP                 2d
+production    checkout-frontend    ClusterIP   10.96.120.50    <none>        80/TCP                   5d
+
+$ kubectl get ep -A
+NAMESPACE     NAME                 ENDPOINTS            AGE
+production    payment-processor    10.244.1.42:8080     2d
+production    checkout-frontend    10.244.1.44:80       5d
+
+$ kubectl get events -A --sort-by='.metadata.creationTimestamp' | tail -n 50
+NAMESPACE     LAST SEEN   TYPE      REASON       OBJECT                                  MESSAGE
+production    2m          Warning   OOMKilling   pod/payment-processor-78cfbb88b-x7kqw   Memory cgroup out of memory: Killed process 41829 (java) total-vm:2097152kB, anon-rss:524288kB, file-rss:0kB
+production    2m          Warning   BackOff      pod/payment-processor-78cfbb88b-x7kqw   Back-off restarting failed container

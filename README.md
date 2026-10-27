@@ -187,10 +187,17 @@ KubeScope/
 
 ---
 
-## 👨‍💻 作者 (Author)
+## 👨‍💻 作者 (Authors)
 
-* **Kerr** ([@kerr20801](https://github.com/kerr20801))
-* 承襲 `PacketScope`、`NetScope`、`SwitchScope` 與 `vlan-web-portal` 之維運工具矩陣，專注解決地端現場網管與雲原生工程師的核心痛點。歡迎提 PR 與 Issue 交流！
+* **Kerr** ([@kerr20801](https://github.com/kerr20801)) — 專案構思、架構設計與維運實戰場景引導。
+* **Google Gemini** (Gemini Code Assist) — AI 結對編程 (AI Pair Programming Copilot)，協同實現 Golden Macro 解析引擎、三級深度法醫會診、多指令切割器與前端玻璃擬態控制台。
+* 承襲 `PacketScope`、`NetScope`、`SwitchScope` 與 `vlan-web-portal` 之維運工具矩陣，專注解決地端現場網管與雲原生工程師的核心痛點。
+
+---
+
+## ⚠️ 免責聲明 (Disclaimer)
+
+> 其他環境與發行版沒測過，只用 AI 測過，就好 XD。實務環境請先於測試叢集驗證修復指令與回滾流程。
 
 ---
 

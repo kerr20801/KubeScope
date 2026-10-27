@@ -467,6 +467,119 @@
       border-color: var(--primary);
     }
 
+    /* Golden Macro & Preset Styles */
+    .golden-macro-card {
+      background: linear-gradient(135deg, rgba(30, 41, 59, 0.75) 0%, rgba(15, 23, 42, 0.95) 100%);
+      border: 1px solid rgba(56, 189, 248, 0.35);
+      border-radius: 8px;
+      padding: 0.9rem 1.25rem;
+      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.3);
+    }
+    .golden-macro-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 1rem;
+      flex-wrap: wrap;
+    }
+    .golden-macro-title {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      flex-wrap: wrap;
+    }
+    .golden-macro-badge {
+      background: rgba(56, 189, 248, 0.15);
+      color: #38bdf8;
+      border: 1px solid rgba(56, 189, 248, 0.4);
+      padding: 0.25rem 0.6rem;
+      border-radius: 4px;
+      font-size: 0.82rem;
+      font-weight: 700;
+    }
+    .golden-macro-actions {
+      display: flex;
+      gap: 0.5rem;
+    }
+    .macro-code {
+      background: #090e17 !important;
+      border: 1px solid rgba(56, 189, 248, 0.25) !important;
+      padding: 0.65rem 0.9rem !important;
+    }
+    .macro-code code {
+      color: #7dd3fc;
+      font-size: 0.92rem;
+      letter-spacing: 0.2px;
+    }
+    .preset-toolbar {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      flex-wrap: wrap;
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid var(--border-color);
+      padding: 0.65rem 1rem;
+      border-radius: 8px;
+    }
+    .preset-label {
+      font-size: 0.88rem;
+      font-weight: 700;
+      color: var(--text-muted);
+    }
+    .preset-btn {
+      background: #1e293b;
+      border: 1px solid #334155;
+      color: #cbd5e1;
+      padding: 0.35rem 0.75rem;
+      border-radius: 6px;
+      font-size: 0.84rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .preset-btn:hover {
+      background: #334155;
+      color: #fff;
+      transform: translateY(-1px);
+    }
+    .preset-btn.danger {
+      border-color: rgba(239, 68, 68, 0.45);
+      color: #fca5a5;
+    }
+    .preset-btn.danger:hover {
+      background: rgba(239, 68, 68, 0.2);
+      color: #fff;
+    }
+    .preset-btn.warning {
+      border-color: rgba(245, 158, 11, 0.45);
+      color: #fde68a;
+    }
+    .preset-btn.warning:hover {
+      background: rgba(245, 158, 11, 0.2);
+      color: #fff;
+    }
+    .preset-btn.success {
+      border-color: rgba(16, 185, 129, 0.45);
+      color: #6ee7b7;
+    }
+    .preset-btn.success:hover {
+      background: rgba(16, 185, 129, 0.2);
+      color: #fff;
+    }
+
+    /* 3-Tier Forensic Output Styling */
+    .tier-badge {
+      display: inline-block;
+      padding: 0.15rem 0.45rem;
+      border-radius: 4px;
+      font-size: 0.78rem;
+      font-weight: 700;
+      margin-bottom: 0.35rem;
+    }
+    .tier-badge-1 { background: rgba(56, 189, 248, 0.15); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.3); }
+    .tier-badge-2 { background: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.3); }
+    .tier-badge-3 { background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.3); }
+
     /* Hidden Utility */
     .hidden { display: none !important; }
   </style>
@@ -476,7 +589,7 @@
   <!-- Top Navbar -->
   <header>
     <div class="brand">
-      <h1>⬡ KubeScope</h1>
+      <h1>⬡ KubeScope 2.0</h1>
       <span class="badge">Kubernetes 異常透視與白話排障軍師</span>
     </div>
 
@@ -494,10 +607,11 @@
     <!-- Controls -->
     <div class="top-controls">
       <div class="font-zoom-ctrl">
-        <span>字體:</span>
-        <button class="font-zoom-btn" onclick="changeFontSize(-1)">A-</button>
-        <button class="font-zoom-btn" onclick="changeFontSize(0)">標準</button>
-        <button class="font-zoom-btn" onclick="changeFontSize(1)">A+</button>
+        <span style="color:var(--text-muted);font-size:0.8rem;">縮放:</span>
+        <button class="font-zoom-btn" onclick="changeFontSize(-1)" title="縮小 (A-)">A-</button>
+        <span id="zoom-level-label" style="font-weight:700;color:var(--primary);min-width:38px;text-align:center;">100%</span>
+        <button class="font-zoom-btn" onclick="changeFontSize(1)" title="放大 (A+)">A+</button>
+        <button class="font-zoom-btn" onclick="changeFontSize(0)" title="重設 (100%)">⟲</button>
       </div>
 
       <div class="status-indicator" id="ollama-status-badge">
@@ -543,8 +657,57 @@
       </div>
 
       <!-- TAB 1: 實戰排障操作流 (Workbench) -->
-      <div id="tab-workbench" class="tab-pane">
-        <div class="step-grid">
+      <div id="tab-workbench" class="tab-pane" style="display: flex; flex-direction: column; gap: 1rem;">
+
+        <!-- 現場極簡唯讀黃金採集指令 (Golden Macro) -->
+        <div class="golden-macro-card">
+          <div class="golden-macro-header">
+            <div class="golden-macro-title">
+              <span class="golden-macro-badge">⚡ 現場 2 秒唯讀黃金採集指令 (Golden Macro)</span>
+              <span style="font-size: 0.88rem; color: var(--text-muted);">跳板機免裝 Agent，一鍵複製執行即時撈取 Nodes, Pods, Services, Endpoints 與 Events：</span>
+            </div>
+            <div class="golden-macro-actions">
+              <button class="btn btn-primary btn-sm" id="btn-copy-macro" onclick="copyGoldenMacro()">📋 複製採集指令</button>
+              <button class="btn btn-secondary btn-sm" id="btn-toggle-input-mode" onclick="toggleInputMode()">🔀 展開/收合 4動明細</button>
+            </div>
+          </div>
+          <div class="code-container macro-code">
+            <code id="golden-macro-code">kubectl get nodes -o wide; kubectl get pods -A -o wide; kubectl get svc,ep -A; kubectl get events -A --sort-by='.metadata.creationTimestamp' | tail -n 50</code>
+          </div>
+        </div>
+
+        <!-- 實戰事故示範包 (One-Click Scenario Presets) -->
+        <div class="preset-toolbar">
+          <span class="preset-label">🎯 事故情境一鍵演練：</span>
+          <button class="preset-btn danger" onclick="loadPresetScenario('oom')">💥 OOMKilled (Exit Code 137)</button>
+          <button class="preset-btn warning" onclick="loadPresetScenario('crashloop')">🔄 CrashLoop 循環崩潰</button>
+          <button class="preset-btn danger" onclick="loadPresetScenario('blackhole')">🕳️ 503 服務黑洞 (No Endpoints)</button>
+          <button class="preset-btn warning" onclick="loadPresetScenario('certs')">🔐 PKI 憑證臨期 (30天)</button>
+          <button class="preset-btn success" onclick="loadPresetScenario('healthy')">🟢 全健康正常叢集</button>
+        </div>
+
+        <!-- 一體化全叢集遙測貼入區 (Unified Telemetry Terminal) -->
+        <div id="unified-input-card" class="card" style="border: 1px solid rgba(56, 189, 248, 0.35); background: linear-gradient(180deg, #162032 0%, #101726 100%);">
+          <div class="card-header">
+            <div class="card-title">
+              <span>🚀 一體化全叢集遙測貼入區 (Unified Telemetry Terminal)</span>
+              <span class="badge" style="font-size: 0.75rem;">智慧自動切片 Nodes / Pods / Services / Endpoints / Events</span>
+            </div>
+            <div style="display:flex; gap:0.5rem;">
+              <button class="btn btn-secondary btn-sm" onclick="loadPresetScenario('oom')">💥 OOM 範例</button>
+              <button class="btn btn-secondary btn-sm" onclick="loadPresetScenario('crashloop')">🔄 CrashLoop 範例</button>
+              <button class="btn btn-secondary btn-sm" onclick="loadPresetScenario('blackhole')">🕳️ 服務黑洞範例</button>
+              <button class="btn btn-secondary btn-sm" onclick="clearUnifiedInput()">🧹 清空</button>
+            </div>
+          </div>
+          <textarea id="input-unified-telemetry" class="input-box" style="height: 180px; font-size: 0.88rem; line-height: 1.45;" placeholder="將跳板機執行的 Golden Macro 終端機文字貼於此處（支援多指令混合貼入、單一表格或 JSON），點擊右下角按鈕開始會診..."></textarea>
+          <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem;">
+            <span style="font-size: 0.85rem; color: var(--text-muted);">💡 支援跳板機終端輸出直接貼入，無需手動前處理或切割。</span>
+            <button class="btn" style="padding: 0.55rem 1.4rem; font-size: 0.95rem; font-weight: 700;" onclick="parseUnifiedAndDiagnose()">⚡ 執行全叢集深度法醫診斷</button>
+          </div>
+        </div>
+
+        <div class="step-grid" id="step-grid-container">
 
           <!-- 動 1: 檢測節點健康 -->
           <div class="card">
@@ -925,12 +1088,119 @@
     let baseFontSize = 15;
     let allParsedPods = [];
     let currentYamlTemplate = 'namespace';
+    let isBreakdownVisible = true;
 
-    // Font Zoom Controller
+    // Font Zoom Controller with LocalStorage Persistence
+    const zoomLevels = [0.90, 1.00, 1.15, 1.30];
+    let currentZoomIdx = 1;
+
+    function initZoom() {
+      const saved = localStorage.getItem('kubescope_zoom_idx');
+      if (saved !== null) {
+        const idx = parseInt(saved, 10);
+        if (!isNaN(idx) && idx >= 0 && idx < zoomLevels.length) {
+          currentZoomIdx = idx;
+        }
+      }
+      applyZoom();
+    }
+
     function changeFontSize(delta) {
-      if (delta === 0) baseFontSize = 15;
-      else baseFontSize = Math.min(20, Math.max(12, baseFontSize + delta));
-      document.documentElement.style.setProperty('--base-font-size', baseFontSize + 'px');
+      if (delta === 0) {
+        currentZoomIdx = 1; // 100%
+      } else if (delta > 0) {
+        currentZoomIdx = Math.min(zoomLevels.length - 1, currentZoomIdx + 1);
+      } else {
+        currentZoomIdx = Math.max(0, currentZoomIdx - 1);
+      }
+      localStorage.setItem('kubescope_zoom_idx', currentZoomIdx.toString());
+      applyZoom();
+    }
+
+    function applyZoom() {
+      const zoom = zoomLevels[currentZoomIdx];
+      const percentText = Math.round(zoom * 100) + '%';
+      const labelEl = document.getElementById('zoom-level-label');
+      if (labelEl) labelEl.textContent = percentText;
+      const mainEl = document.querySelector('main') || document.body;
+      if (mainEl) {
+        mainEl.style.zoom = zoom;
+      }
+    }
+
+    // Golden Macro Actions & Presets
+    function copyGoldenMacro() {
+      const codeEl = document.getElementById('golden-macro-code');
+      if (codeEl) {
+        navigator.clipboard.writeText(codeEl.textContent.trim());
+        const btn = document.getElementById('btn-copy-macro');
+        if (btn) {
+          const orig = btn.textContent;
+          btn.textContent = '✓ 已複製到剪貼簿!';
+          setTimeout(() => { btn.textContent = orig; }, 1800);
+        }
+      }
+    }
+
+    function toggleInputMode() {
+      const container = document.getElementById('step-grid-container');
+      const btn = document.getElementById('btn-toggle-input-mode');
+      if (!container) return;
+      isBreakdownVisible = !isBreakdownVisible;
+      if (isBreakdownVisible) {
+        container.classList.remove('hidden');
+        if (btn) btn.textContent = '🔀 收合 4動明細';
+      } else {
+        container.classList.add('hidden');
+        if (btn) btn.textContent = '🔀 展開 4動明細';
+      }
+    }
+
+    function clearUnifiedInput() {
+      const el = document.getElementById('input-unified-telemetry');
+      if (el) el.value = '';
+    }
+
+    async function loadPresetScenario(type) {
+      if (type === 'certs') {
+        switchTab('infra');
+        switchInfraSubtab('certs');
+        await loadSampleCerts();
+        return;
+      }
+
+      try {
+        const res = await fetch(`/api/sample?type=${type === 'healthy' ? 'macro_healthy' : type}`);
+        const data = await res.json();
+        const text = data.text || (typeof data === 'string' ? data : JSON.stringify(data, null, 2));
+        const unifiedEl = document.getElementById('input-unified-telemetry');
+        if (unifiedEl) unifiedEl.value = text;
+        const podsEl = document.getElementById('input-pods');
+        if (podsEl) podsEl.value = text;
+        await parseUnifiedAndDiagnose();
+      } catch (e) {
+        alert('無法載入情境: ' + e);
+      }
+    }
+
+    async function parseUnifiedAndDiagnose() {
+      const text = document.getElementById('input-unified-telemetry').value.trim();
+      if (!text) {
+        alert('請先貼入跳板機 Golden Macro 終端輸出，或點擊上方情境示範按鈕！');
+        return;
+      }
+
+      try {
+        const res = await fetch('/api/diagnose', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ data: text })
+        });
+        const data = await res.json();
+        renderDiagnosticResults(data);
+      } catch (e) {
+        alert('會診失敗: ' + e);
+      }
     }
 
     // Tab Switcher
@@ -1047,6 +1317,20 @@
       const cveSum = data.cve_summary || {};
       document.getElementById('stat-cve-count').textContent = cveSum.total_cves || 0;
 
+      // Render Nodes Table if available in cluster_model
+      if (data.cluster_model && data.cluster_model.nodes && data.cluster_model.nodes.length) {
+        const nodesContainer = document.getElementById('nodes-table-container');
+        if (nodesContainer) {
+          let html = '<table class="data-table"><thead><tr><th>節點名稱</th><th>狀態</th><th>角色</th><th>版本</th><th>內部 IP</th></tr></thead><tbody>';
+          data.cluster_model.nodes.forEach(n => {
+            const badge = n.is_healthy ? 'badge-normal' : 'badge-critical';
+            html += `<tr><td><strong>${n.name}</strong></td><td><span class="badge-status ${badge}">${n.status}</span></td><td>${n.roles || 'worker'}</td><td>${n.version || 'v1.26.0'}</td><td>${n.internal_ip || '<none>'}</td></tr>`;
+          });
+          html += '</tbody></table>';
+          nodesContainer.innerHTML = html;
+        }
+      }
+
       // Render Pods Table with Namespace Filtering
       allParsedPods = (data.cluster_model && data.cluster_model.pods) || [];
       populateNamespaceFilter(allParsedPods);
@@ -1121,38 +1405,56 @@
       document.getElementById('res-ns-input').value = ns;
     }
 
-    // Render Issues Cards
+    // Render Issues Cards (3-Tier Forensic Output)
     function renderIssuesCards(issues) {
       const container = document.getElementById('diagnosis-issues-container');
       if (!issues.length) {
-        container.innerHTML = '<div class="card" style="border-color:var(--success);"><h3 style="color:var(--success);">🟢 恭喜！未檢測到阻斷性故障，叢集健康運作中。</h3></div>';
+        container.innerHTML = '<div class="card" style="border-color:var(--success);"><h3 style="color:var(--success);">🟢 恭喜！未檢測到阻斷性故障，全叢集健康運作中。</h3></div>';
         return;
       }
 
-      let html = '<h3 style="margin-bottom:0.75rem; color:#fff;">🚨 核心阻斷事故會診清單</h3>';
+      let html = '<h3 style="margin-bottom:0.75rem; color:#fff;">🚨 核心阻斷事故 3 級深度法醫會診</h3>';
       issues.forEach(i => {
         const badgeClass = i.severity === 'CRITICAL' ? 'badge-critical' : 'badge-warning';
-        html += `<div class="card" style="margin-bottom: 0.85rem; border-left: 4px solid ${i.severity === 'CRITICAL' ? 'var(--critical)' : 'var(--warning)'};">
-          <div class="card-header">
-            <div style="display:flex;align-items:center;gap:0.6rem;">
+        html += `<div class="card" style="margin-bottom: 1rem; border-left: 4px solid ${i.severity === 'CRITICAL' ? 'var(--critical)' : 'var(--warning)'}; background: linear-gradient(180deg, #182234 0%, #111827 100%);">
+          <div class="card-header" style="margin-bottom: 0.85rem;">
+            <div style="display:flex;align-items:center;gap:0.6rem;flex-wrap:wrap;">
               <span class="badge-status ${badgeClass}">${i.severity}</span>
-              <strong>${i.title}</strong>
+              <strong style="font-size:1.05rem;color:#fff;">${i.title}</strong>
+              <span style="font-size:0.82rem;color:var(--text-muted);background:rgba(255,255,255,0.05);padding:0.15rem 0.5rem;border-radius:4px;">${i.target}</span>
             </div>
-            <div style="display:flex;gap:0.4rem;">
+            <div style="display:flex;gap:0.4rem;flex-wrap:wrap;">
               ${i.category === 'OOMKILLED' ? `<button class="btn btn-secondary btn-sm" onclick="jumpToOomFix('${i.target}')">🛠️ 產生修復 YAML</button>` : ''}
               ${i.category === 'NETWORK_BLACKHOLE' ? `<button class="btn btn-secondary btn-sm" onclick="jumpToServiceFix('${i.target}')">🛠️ 產生修復 YAML</button>` : ''}
               <button class="btn btn-secondary btn-sm" onclick="askAiAboutIssue('${i.title}', '${i.target}')">🤖 呼叫 SRE 軍師推演</button>
             </div>
           </div>
-          <p style="font-size:0.92rem; margin-bottom:0.4rem;"><strong>事故根因：</strong>${i.cause}</p>
-          <p style="font-size:0.88rem; color:var(--text-muted); margin-bottom:0.5rem;"><strong>修復指引：</strong>${i.recommendation || ''}</p>
-          ${i.log_snippet ? `<div class="code-container"><code style="color:#f87171;">${i.log_snippet}</code></div>` : ''}
-          ${i.actionable_commands ? i.actionable_commands.map(cmd => `
-            <div class="code-container">
-              <button class="copy-btn" onclick="copyCode(this)">複製</button>
-              <code>${cmd}</code>
-            </div>
-          `).join('') : ''}
+
+          <!-- 第 1 層：白話病理解讀 -->
+          <div style="margin-bottom: 0.85rem; background: rgba(56, 189, 248, 0.04); border: 1px solid rgba(56, 189, 248, 0.2); padding: 0.75rem 0.9rem; border-radius: 6px;">
+            <div class="tier-badge tier-badge-1">🩺 第 1 層：白話病理解讀</div>
+            <p style="font-size:0.92rem; margin-bottom:0.35rem; color:#f1f5f9; line-height: 1.5;"><strong>【病理剖析】</strong>${i.cause}</p>
+            <p style="font-size:0.88rem; color:var(--text-muted); line-height: 1.45;"><strong>【處方指引】</strong>${i.recommendation || ''}</p>
+          </div>
+
+          <!-- 第 2 層：致命遺言切片 -->
+          ${i.log_snippet ? `
+          <div style="margin-bottom: 0.85rem;">
+            <div class="tier-badge tier-badge-2">🩸 第 2 層：致命遺言與現場事件切片</div>
+            <div class="code-container" style="background:#090d16; border-color:rgba(239, 68, 68, 0.35); padding: 0.7rem 0.85rem;"><code style="color:#fca5a5; line-height: 1.45; white-space: pre-wrap;">${i.log_snippet}</code></div>
+          </div>` : ''}
+
+          <!-- 第 3 層：一鍵修復與回滾 CLI -->
+          ${i.actionable_commands && i.actionable_commands.length ? `
+          <div>
+            <div class="tier-badge tier-badge-3">⚡ 第 3 層：一鍵修復與回滾 CLI</div>
+            ${i.actionable_commands.map(cmd => `
+              <div class="code-container" style="margin-bottom:0.4rem; background:#090e18; border-color:rgba(16, 185, 129, 0.3);">
+                <button class="copy-btn" onclick="copyCode(this)">複製指令</button>
+                <code style="color:#6ee7b7; font-weight:600;">${cmd}</code>
+              </div>
+            `).join('')}
+          </div>` : ''}
         </div>`;
       });
       container.innerHTML = html;
@@ -1887,6 +2189,7 @@ k8s-worker-02          Ready    worker          142d   v1.26.2   192.168.10.3   
 
     // Initial Load
     window.addEventListener('DOMContentLoaded', () => {
+      initZoom();
       checkOllama();
     });
   </script>

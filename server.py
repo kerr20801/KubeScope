@@ -100,13 +100,20 @@ class KubeScopeHandler(BaseHTTPRequestHandler):
             filename_map = {
                 "issues": "sample_cluster_issues.json",
                 "healthy": "sample_healthy_cluster.json",
-                "legacy": "sample_cve_legacy.json"
+                "legacy": "sample_cve_legacy.json",
+                "oom": "sample_macro_oom.txt",
+                "crashloop": "sample_macro_crashloop.txt",
+                "blackhole": "sample_macro_blackhole.txt",
+                "macro_healthy": "sample_macro_healthy.txt"
             }
             fname = filename_map.get(sample_type, "sample_cluster_issues.json")
             target_path = os.path.join(SAMPLES_DIR, fname)
             if os.path.exists(target_path):
                 with open(target_path, "r", encoding="utf-8") as f:
-                    self._send_json(json.load(f))
+                    if fname.endswith(".txt"):
+                        self._send_json({"text": f.read()})
+                    else:
+                        self._send_json(json.load(f))
             else:
                 self._send_json({"error": "Sample file not found"}, 404)
 

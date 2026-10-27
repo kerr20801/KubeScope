@@ -104,6 +104,24 @@ class TestKubeScopeEngine(unittest.TestCase):
         self.assertEqual(parsed[1]["status"], "Running")
         self.assertEqual(parsed[1]["severity"], "NORMAL")
 
+    def test_macro_dump_parsing(self):
+        samples_dir = os.path.join(os.path.dirname(__file__), "samples")
+        oom_file = os.path.join(samples_dir, "sample_macro_oom.txt")
+        with open(oom_file, "r", encoding="utf-8") as f:
+            dump_text = f.read()
+
+        model = self.parser.parse_input(dump_text)
+        self.assertEqual(len(model["nodes"]), 3)
+        self.assertEqual(len(model["pods"]), 3)
+        self.assertEqual(len(model["services"]), 2)
+        self.assertEqual(len(model["events"]), 2)
+
+        diag = self.diagnostician.diagnose_cluster(model)
+        self.assertTrue(any("OOMKilled" in i["title"] for i in diag["issues"]))
+        oom_issue = next(i for i in diag["issues"] if "OOMKilled" in i["title"])
+        self.assertIn("OOMKilling", oom_issue["log_snippet"])
+        self.assertTrue(any("kubectl patch deployment" in c for c in oom_issue["actionable_commands"]))
+
     def test_route_tracer(self):
         from core.route_tracer import RouteTracer
         tracer = RouteTracer()

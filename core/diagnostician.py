@@ -84,7 +84,24 @@ class KubeDiagnostician:
                     "recommendation": "請比對 Deployment / Pod 的 labels 與 Service selector 定義，修正拼字或名稱錯配。",
                     "actionable_commands": [
                         f"kubectl get svc -n {svc_ns} {svc_name} -o yaml",
-                        f"kubectl get pods -n {svc_ns} --show-labels"
+                        f"kubectl get pods -n {svc_ns} --show-labels",
+                        f"kubectl describe ep -n {svc_ns} {svc_name}"
+                    ]
+                })
+            elif endpoints == [] and svc_name != "kubernetes" and svc.get("type", "ClusterIP") in ("ClusterIP", "NodePort", "LoadBalancer") and "endpoints" in svc:
+                issues.append({
+                    "id": f"SVC_EMPTY_EP_{svc_ns}_{svc_name}",
+                    "category": "NETWORK_BLACKHOLE",
+                    "title": f"【端點懸空黑洞】Service {svc_name} 無任何可用 Endpoints",
+                    "target": f"{svc_ns}/{svc_name}",
+                    "severity": "CRITICAL",
+                    "cause": f"Service {svc_name} 的 Endpoints 列表為空 (<none>)，所有後端 Pod 均未就緒 (Readiness Probe 失敗) 或未成功掛載，外部流量無法路由。",
+                    "log_snippet": f"Endpoints: <none> | Service Type: {svc.get('type', 'ClusterIP')}",
+                    "recommendation": "檢查後端 Pod 的標籤匹配與健康探針 (readinessProbe) 狀態，確保至少有一組 Pod 處於 1/1 Ready。",
+                    "actionable_commands": [
+                        f"kubectl describe svc -n {svc_ns} {svc_name}",
+                        f"kubectl get ep -n {svc_ns} {svc_name}",
+                        f"kubectl get pods -n {svc_ns} -o wide"
                     ]
                 })
 
@@ -106,6 +123,7 @@ class KubeDiagnostician:
         }
 
     def _diagnose_single_pod(self, pod: Dict[str, Any], cluster_model: Dict[str, Any]) -> List[Dict[str, Any]]:
+        import re
         issues: List[Dict[str, Any]] = []
         name = pod.get("name", "unknown")
         ns = pod.get("namespace", "default")
@@ -113,9 +131,26 @@ class KubeDiagnostician:
         target = f"{ns}/{name}"
         restarts = pod.get("restarts", 0)
 
+        # Extract workload name (strip replica set & pod random hash)
+        workload_name = re.sub(r'-[a-z0-9]{8,10}-[a-z0-9]{5}$', '', name)
+        if workload_name == name:
+            workload_name = re.sub(r'-[a-z0-9]{5}$', '', name)
+
+        # Cross-reference cluster events for this pod
+        matched_events = [
+            e for e in cluster_model.get("events", [])
+            if name in e.get("object", "") or name in e.get("message", "")
+        ]
+        event_notes = ""
+        if matched_events:
+            event_notes = "\n" + "\n".join([f"【現場事件】[{e.get('last_seen', 'recent')}] {e.get('reason')}: {e.get('message')}" for e in matched_events[:2]])
+
         # 1. OOMKilled
         if "OOMKilled" in status or pod.get("last_termination_reason") == "OOMKilled" or pod.get("exit_code") == 137:
             limits = pod.get("limits", {})
+            oom_snippet = "java.lang.OutOfMemoryError: Java heap space\nContainer terminated with exit code 137 (SIGKILL / OOMKilled)"
+            if event_notes:
+                oom_snippet += event_notes
             issues.append({
                 "id": f"POD_OOM_{ns}_{name}",
                 "category": "OOMKILLED",
@@ -123,16 +158,20 @@ class KubeDiagnostician:
                 "target": target,
                 "severity": "CRITICAL",
                 "cause": f"容器消耗記憶體突破宣告之上限 (Memory Limit: {limits.get('memory', '未指定')})，遭 Linux 核心 cgroup OOM Killer 強制 SIGKILL 擊殺。",
-                "log_snippet": "java.lang.OutOfMemoryError: Java heap space\nContainer terminated with exit code 137 (SIGKILL / OOMKilled)",
+                "log_snippet": oom_snippet,
                 "recommendation": "請適度調高 resources.limits.memory 額度，或排查程式記憶體洩漏 (Memory Leak)。",
                 "actionable_commands": [
                     f"kubectl describe pod -n {ns} {name} | grep -A 5 -B 5 -i oom",
-                    f"kubectl logs -n {ns} {name} --previous --tail=100"
+                    f"kubectl logs -n {ns} {name} --previous --tail=100",
+                    f"kubectl patch deployment {workload_name} -n {ns} --type='strategic' -p '{{\"spec\":{{\"template\":{{\"spec\":{{\"containers\":[{{\"name\":\"app\",\"resources\":{{\"limits\":{{\"memory\":\"1Gi\"}}}}}}]}}}}}}'"
                 ]
             })
 
         # 2. CrashLoopBackOff
         elif "CrashLoopBackOff" in status and not status.startswith("Init:"):
+            crash_snippet = f"Last exit reason: CrashLoopBackOff | Restarts: {restarts}"
+            if event_notes:
+                crash_snippet += event_notes
             issues.append({
                 "id": f"POD_CRASH_{ns}_{name}",
                 "category": "CRASHLOOP",
@@ -140,16 +179,20 @@ class KubeDiagnostician:
                 "target": target,
                 "severity": "CRITICAL",
                 "cause": f"容器主進程啟動後異常退出 (累計重啟 {restarts} 次)，Kubelet 指數退避延遲拉長，通常由缺少設定檔、資料庫連線拒絕或代碼 Panic 引發。",
-                "log_snippet": f"Last exit reason: CrashLoopBackOff | Restarts: {restarts}",
-                "recommendation": "使用 --previous 旗標調閱上一代容器死前最後 200 行日誌以精準鎖定崩潰原因。",
+                "log_snippet": crash_snippet,
+                "recommendation": "使用 --previous 旗標調閱上一代容器死前最後 200 行日誌以精準鎖定崩潰原因，或緊急回滾至上一穩定版本。",
                 "actionable_commands": [
                     f"kubectl logs -n {ns} {name} --previous --tail=200",
+                    f"kubectl rollout undo deployment/{workload_name} -n {ns}",
                     f"kubectl describe pod -n {ns} {name}"
                 ]
             })
 
         # 3. Init Container Blocked
         if status.startswith("Init:") or "Init:" in pod.get("status_reason", ""):
+            init_snippet = f"Status: {status} | Restarts: {restarts}"
+            if event_notes:
+                init_snippet += event_notes
             issues.append({
                 "id": f"POD_INIT_BLOCKED_{ns}_{name}",
                 "category": "INIT_CONTAINER_BLOCKED",
@@ -157,7 +200,7 @@ class KubeDiagnostician:
                 "target": target,
                 "severity": "CRITICAL",
                 "cause": "InitContainer (如資料庫結構遷移 migration、等待相依服務就緒) 執行失敗或崩潰，導致業務主容器永遠無法開始啟動。",
-                "log_snippet": f"Status: {status} | Restarts: {restarts}",
+                "log_snippet": init_snippet,
                 "recommendation": "指定 -c 參數針對 Init 容器專屬提取日誌查看阻斷根因。",
                 "actionable_commands": [
                     f"kubectl get pod -n {ns} {name} -o jsonpath='{{.spec.initContainers[*].name}}'",
@@ -167,6 +210,9 @@ class KubeDiagnostician:
 
         # 4. Evicted
         if "Evicted" in status or pod.get("status_reason") == "Evicted":
+            evicted_snippet = "The node had condition: [DiskPressure/MemoryPressure]. Evicted pod."
+            if event_notes:
+                evicted_snippet += event_notes
             issues.append({
                 "id": f"POD_EVICTED_{ns}_{name}",
                 "category": "EVICTED_POD",
@@ -174,7 +220,7 @@ class KubeDiagnostician:
                 "target": target,
                 "severity": "CRITICAL",
                 "cause": "該節點觸發資源驅逐門檻 (如 DiskPressure 磁碟空間耗盡、MemoryPressure 記憶體耗盡)，Kubelet 強行驅逐該 Pod。",
-                "log_snippet": "The node had condition: [DiskPressure/MemoryPressure]. Evicted pod.",
+                "log_snippet": evicted_snippet,
                 "recommendation": "清理主機磁碟空間，並使用安全指令批次清除 Evicted 垃圾狀態釋放 APIServer 負擔。",
                 "actionable_commands": [
                     f"kubectl get pods -n {ns} --field-selector status.phase=Failed -o jsonpath='{{.items[?(@.status.reason==\"Evicted\")].metadata.name}}'",
@@ -184,6 +230,9 @@ class KubeDiagnostician:
 
         # 5. ImagePullBackOff / ErrImagePull
         if "ImagePull" in status or "ErrImage" in status:
+            img_snippet = f"Status: {status}"
+            if event_notes:
+                img_snippet += event_notes
             issues.append({
                 "id": f"POD_IMAGE_PULL_{ns}_{name}",
                 "category": "IMAGE_PULL_FAILED",
@@ -191,7 +240,7 @@ class KubeDiagnostician:
                 "target": target,
                 "severity": "CRITICAL",
                 "cause": "映像檔名稱/Tag 拼錯、Docker Registry 權杖過期 (imagePullSecrets 缺失) 或機房網路無法連通倉庫。",
-                "log_snippet": f"Status: {status}",
+                "log_snippet": img_snippet,
                 "recommendation": "檢查映像檔路徑拼寫與 imagePullSecrets 密鑰宣告。",
                 "actionable_commands": [
                     f"kubectl describe pod -n {ns} {name} | grep -A 5 -i failed"

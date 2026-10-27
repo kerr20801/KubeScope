@@ -53,7 +53,7 @@ class KubeParser:
 
         header_idx = -1
         for i, line in enumerate(lines):
-            if "NAME" in line and "STATUS" in line:
+            if "NAME" in line and "STATUS" in line and ("ROLES" in line or "VERSION" in line or "INTERNAL-IP" in line or "AGE" in line):
                 header_idx = i
                 break
 
@@ -62,6 +62,8 @@ class KubeParser:
 
         nodes = []
         for line in lines[header_idx + 1:]:
+            if line.startswith("$") or line.startswith(">") or "NAMESPACE" in line:
+                break
             parts = re.split(r'\s{2,}|\t+', line)
             if len(parts) < 2:
                 parts = line.split()
@@ -102,7 +104,7 @@ class KubeParser:
         header_idx = -1
         has_namespace = False
         for i, line in enumerate(lines):
-            if "NAME" in line and "STATUS" in line:
+            if "NAME" in line and "STATUS" in line and ("READY" in line or "RESTARTS" in line):
                 header_idx = i
                 has_namespace = "NAMESPACE" in line
                 break
@@ -112,6 +114,8 @@ class KubeParser:
 
         pods = []
         for line in lines[header_idx + 1:]:
+            if line.startswith("$") or line.startswith(">") or ("NAME" in line and "TYPE" in line):
+                break
             parts = re.split(r'\s{2,}|\t+', line)
             if len(parts) < (4 if has_namespace else 3):
                 parts = line.split()
@@ -155,6 +159,170 @@ class KubeParser:
             })
         return pods
 
+    def parse_services_table(self, raw_text: str) -> List[Dict[str, Any]]:
+        """Parses `kubectl get svc -A` or `kubectl get svc -o wide` table."""
+        lines = [line.strip() for line in raw_text.strip().splitlines() if line.strip()]
+        if not lines:
+            return []
+
+        header_idx = -1
+        has_namespace = False
+        for i, line in enumerate(lines):
+            if "NAME" in line and "TYPE" in line and "CLUSTER-IP" in line:
+                header_idx = i
+                has_namespace = "NAMESPACE" in line
+                break
+
+        if header_idx == -1:
+            return []
+
+        services = []
+        for line in lines[header_idx + 1:]:
+            if line.startswith("$") or line.startswith(">") or ("NAME" in line and "ENDPOINTS" in line):
+                break
+            parts = re.split(r'\s{2,}|\t+', line)
+            if len(parts) < (4 if has_namespace else 3):
+                parts = line.split()
+            if len(parts) < (4 if has_namespace else 3):
+                continue
+
+            idx = 0
+            namespace = parts[idx] if has_namespace else "default"
+            if has_namespace:
+                idx += 1
+
+            name = parts[idx]
+            svc_type = parts[idx + 1] if len(parts) > idx + 1 else "ClusterIP"
+            cluster_ip = parts[idx + 2] if len(parts) > idx + 2 else ""
+            external_ip = parts[idx + 3] if len(parts) > idx + 3 else ""
+            ports_str = parts[idx + 4] if len(parts) > idx + 4 else ""
+            age = parts[idx + 5] if len(parts) > idx + 5 else ""
+            selector_str = parts[idx + 6] if len(parts) > idx + 6 else ""
+
+            # Parse selector if present
+            selector = {}
+            if selector_str and selector_str != "<none>":
+                for pair in selector_str.split(","):
+                    if "=" in pair:
+                        k, v = pair.split("=", 1)
+                        selector[k.strip()] = v.strip()
+
+            # Parse ports
+            ports = []
+            if ports_str and ports_str != "<none>":
+                for p_item in ports_str.split(","):
+                    p_match = re.search(r'(\d+)(?::(\d+))?/(TCP|UDP)', p_item)
+                    if p_match:
+                        p_port = int(p_match.group(1))
+                        ports.append({"port": p_port, "targetPort": p_port, "protocol": p_match.group(3)})
+
+            services.append({
+                "namespace": namespace,
+                "name": name,
+                "type": svc_type,
+                "cluster_ip": cluster_ip,
+                "external_ip": external_ip,
+                "ports": ports,
+                "age": age,
+                "selector": selector,
+                "endpoints": []
+            })
+        return services
+
+    def parse_endpoints_table(self, raw_text: str) -> List[Dict[str, Any]]:
+        """Parses `kubectl get ep -A` or `kubectl get endpoints` table."""
+        lines = [line.strip() for line in raw_text.strip().splitlines() if line.strip()]
+        if not lines:
+            return []
+
+        header_idx = -1
+        has_namespace = False
+        for i, line in enumerate(lines):
+            if "NAME" in line and "ENDPOINTS" in line:
+                header_idx = i
+                has_namespace = "NAMESPACE" in line
+                break
+
+        if header_idx == -1:
+            return []
+
+        endpoints = []
+        for line in lines[header_idx + 1:]:
+            if line.startswith("$") or line.startswith(">") or ("LAST SEEN" in line and "TYPE" in line):
+                break
+            parts = re.split(r'\s{2,}|\t+', line)
+            if len(parts) < (2 if has_namespace else 1):
+                parts = line.split()
+            if len(parts) < (2 if has_namespace else 1):
+                continue
+
+            idx = 0
+            namespace = parts[idx] if has_namespace else "default"
+            if has_namespace:
+                idx += 1
+
+            name = parts[idx]
+            ep_str = parts[idx + 1] if len(parts) > idx + 1 else ""
+            age = parts[idx + 2] if len(parts) > idx + 2 else ""
+
+            ep_list = []
+            if ep_str and ep_str != "<none>":
+                ep_list = [ep.strip() for ep in ep_str.split(",") if ep.strip()]
+
+            endpoints.append({
+                "namespace": namespace,
+                "name": name,
+                "endpoints": ep_list,
+                "age": age
+            })
+        return endpoints
+
+    def parse_events_table(self, raw_text: str) -> List[Dict[str, Any]]:
+        """Parses `kubectl get events -A` or `kubectl get events` table."""
+        lines = [line.strip() for line in raw_text.strip().splitlines() if line.strip()]
+        if not lines:
+            return []
+
+        header_idx = -1
+        has_namespace = False
+        for i, line in enumerate(lines):
+            if ("TYPE" in line and "REASON" in line and "OBJECT" in line) or ("LAST SEEN" in line and "REASON" in line):
+                header_idx = i
+                has_namespace = "NAMESPACE" in line
+                break
+
+        if header_idx == -1:
+            return []
+
+        events = []
+        for line in lines[header_idx + 1:]:
+            if line.startswith("$") or line.startswith(">"):
+                break
+            parts = re.split(r'\s{2,}|\t+', line)
+            if len(parts) < 4:
+                continue
+
+            idx = 0
+            namespace = parts[idx] if has_namespace else "default"
+            if has_namespace:
+                idx += 1
+
+            last_seen = parts[idx] if len(parts) > idx else ""
+            ev_type = parts[idx + 1] if len(parts) > idx + 1 else "Normal"
+            reason = parts[idx + 2] if len(parts) > idx + 2 else ""
+            obj = parts[idx + 3] if len(parts) > idx + 3 else ""
+            msg = " ".join(parts[idx + 4:]) if len(parts) > idx + 4 else ""
+
+            events.append({
+                "namespace": namespace,
+                "last_seen": last_seen,
+                "type": ev_type,
+                "reason": reason,
+                "object": obj,
+                "message": msg
+            })
+        return events
+
     def _evaluate_pod_severity(self, status: str, ready: str = "") -> str:
         critical_statuses = {
             "CrashLoopBackOff", "OOMKilled", "Error", "Evicted", "NodeLost",
@@ -188,13 +356,30 @@ class KubeParser:
         }
 
         # Check for nodes table
-        if re.search(r'NAME\s+STATUS\s+ROLES', text):
+        if re.search(r'\bNAME\s+STATUS\s+ROLES\b', text) or re.search(r'\bNAME\s+STATUS\s+AGE\s+VERSION\b', text):
             model["nodes"] = self.parse_nodes_table(text)
             if model["nodes"]:
                 model["version"] = model["nodes"][0].get("version", "v1.26.0")
 
         # Check for pods table
-        if re.search(r'NAME\s+READY\s+STATUS', text):
+        if re.search(r'\bNAME\s+READY\s+STATUS\b', text) or re.search(r'\bREADY\s+STATUS\s+RESTARTS\b', text):
             model["pods"] = self.parse_pods_table(text)
+
+        # Check for services table
+        if re.search(r'\bNAME\s+TYPE\s+CLUSTER-IP\b', text):
+            model["services"] = self.parse_services_table(text)
+
+        # Check for endpoints table
+        if re.search(r'\bNAME\s+ENDPOINTS\b', text):
+            endpoints = self.parse_endpoints_table(text)
+            ep_map = {(ep["namespace"], ep["name"]): ep["endpoints"] for ep in endpoints}
+            for svc in model["services"]:
+                key = (svc.get("namespace", "default"), svc.get("name", ""))
+                if key in ep_map:
+                    svc["endpoints"] = ep_map[key]
+
+        # Check for events table
+        if re.search(r'\bREASON\s+OBJECT\b', text) or re.search(r'\bLAST SEEN\s+TYPE\b', text):
+            model["events"] = self.parse_events_table(text)
 
         return model
