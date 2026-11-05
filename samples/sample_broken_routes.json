@@ -1,0 +1,66 @@
+{
+  "ingresses": [
+    {
+      "name": "public-ingress",
+      "namespace": "production",
+      "rules": [
+        {
+          "host": "api.corp.internal",
+          "paths": [
+            {
+              "path": "/broken-selector",
+              "backend_service": "orphan-service",
+              "backend_port": 80
+            },
+            {
+              "path": "/probe-fail",
+              "backend_service": "unready-probe-service",
+              "backend_port": 80
+            },
+            {
+              "path": "/healthy",
+              "backend_service": "healthy-service",
+              "backend_port": 80
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "services": [
+    {
+      "name": "orphan-service",
+      "namespace": "production",
+      "selector": {"app": "non-existent-app-tag"},
+      "ports": [{"port": 80, "targetPort": 8080}]
+    },
+    {
+      "name": "unready-probe-service",
+      "namespace": "production",
+      "selector": {"app": "failing-probe-backend"},
+      "ports": [{"port": 80, "targetPort": 8080}]
+    },
+    {
+      "name": "healthy-service",
+      "namespace": "production",
+      "selector": {"app": "working-backend"},
+      "ports": [{"port": 80, "targetPort": 80}]
+    }
+  ],
+  "pods": [
+    {
+      "name": "probe-backend-pod-01",
+      "namespace": "production",
+      "ready": "0/1",
+      "status": "Running",
+      "labels": {"app": "failing-probe-backend"}
+    },
+    {
+      "name": "working-backend-pod-01",
+      "namespace": "production",
+      "ready": "1/1",
+      "status": "Running",
+      "labels": {"app": "working-backend"}
+    }
+  ]
+}

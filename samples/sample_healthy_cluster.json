@@ -1,0 +1,66 @@
+{
+  "version": "v1.28.2",
+  "nodes": [
+    {
+      "name": "k8s-master-01",
+      "status": "Ready",
+      "roles": "control-plane",
+      "age": "210d",
+      "version": "v1.28.2",
+      "internal_ip": "10.0.1.10",
+      "os_image": "Ubuntu 22.04 LTS",
+      "kernel_version": "5.15.0-generic",
+      "container_runtime": "containerd://1.7.2",
+      "is_healthy": true
+    },
+    {
+      "name": "k8s-node-01",
+      "status": "Ready",
+      "roles": "worker",
+      "age": "210d",
+      "version": "v1.28.2",
+      "internal_ip": "10.0.1.11",
+      "os_image": "Ubuntu 22.04 LTS",
+      "kernel_version": "5.15.0-generic",
+      "container_runtime": "containerd://1.7.2",
+      "is_healthy": true
+    }
+  ],
+  "pods": [
+    {
+      "namespace": "production",
+      "name": "ecommerce-frontend-5b4d9-8ff4z",
+      "ready": "1/1",
+      "status": "Running",
+      "status_reason": "Running",
+      "restarts": 0,
+      "age": "12d",
+      "ip": "10.244.1.20",
+      "node": "k8s-node-01",
+      "labels": {"app": "ecommerce-frontend"}
+    },
+    {
+      "namespace": "production",
+      "name": "catalog-api-98cf4-22xqm",
+      "ready": "1/1",
+      "status": "Running",
+      "status_reason": "Running",
+      "restarts": 0,
+      "age": "12d",
+      "ip": "10.244.1.21",
+      "node": "k8s-node-01",
+      "labels": {"app": "catalog-api"}
+    }
+  ],
+  "services": [
+    {
+      "namespace": "production",
+      "name": "ecommerce-frontend-svc",
+      "type": "ClusterIP",
+      "selector": {"app": "ecommerce-frontend"},
+      "ports": [{"port": 80, "targetPort": 80}],
+      "endpoints": ["10.244.1.20:80"]
+    }
+  ],
+  "events": []
+}

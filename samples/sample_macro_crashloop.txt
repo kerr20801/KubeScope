@@ -1,0 +1,25 @@
+$ kubectl get nodes -o wide
+NAME               STATUS   ROLES           AGE    VERSION   INTERNAL-IP    EXTERNAL-IP   OS-IMAGE             KERNEL-VERSION      CONTAINER-RUNTIME
+k8s-master-01      Ready    control-plane   90d    v1.27.1   192.168.10.11  <none>        Ubuntu 22.04.2 LTS   5.15.0-72-generic   containerd://1.6.20
+k8s-worker-01      Ready    <none>          90d    v1.27.1   192.168.10.21  <none>        Ubuntu 22.04.2 LTS   5.15.0-72-generic   containerd://1.6.20
+
+$ kubectl get pods -A -o wide
+NAMESPACE     NAME                               READY   STATUS             RESTARTS        AGE   IP            NODE
+production    inventory-service-589fcbf7b-2k48d  0/1     CrashLoopBackOff   24 (45s ago)    1d    10.244.1.43   k8s-worker-01
+production    api-gateway-7b98fdd4-9lqqs         1/1     Running            0               10d   10.244.1.30   k8s-worker-01
+kube-system   kube-proxy-8km9l                   1/1     Running            0               90d   192.168.10.21 k8s-worker-01
+
+$ kubectl get svc -A
+NAMESPACE     NAME                 TYPE        CLUSTER-IP      EXTERNAL-IP   PORT(S)                  AGE
+production    inventory-service    ClusterIP   10.96.210.18    <none>        8000/TCP                 1d
+production    api-gateway          ClusterIP   10.96.10.1      <none>        80/TCP                   10d
+
+$ kubectl get ep -A
+NAMESPACE     NAME                 ENDPOINTS            AGE
+production    inventory-service    10.244.1.43:8000     1d
+production    api-gateway          10.244.1.30:80       10d
+
+$ kubectl get events -A --sort-by='.metadata.creationTimestamp' | tail -n 50
+NAMESPACE     LAST SEEN   TYPE      REASON       OBJECT                                  MESSAGE
+production    45s         Warning   BackOff      pod/inventory-service-589fcbf7b-2k48d   Back-off restarting failed container app in pod inventory-service-589fcbf7b-2k48d
+production    45s         Warning   Failed       pod/inventory-service-589fcbf7b-2k48d   Error: dial tcp 10.96.200.12:6379: i/o timeout (redis connection failed)

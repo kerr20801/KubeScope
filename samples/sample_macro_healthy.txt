@@ -1,0 +1,30 @@
+$ kubectl get nodes -o wide
+NAME               STATUS   ROLES           AGE    VERSION   INTERNAL-IP    EXTERNAL-IP   OS-IMAGE             KERNEL-VERSION      CONTAINER-RUNTIME
+k8s-master-01      Ready    control-plane   240d   v1.28.3   192.168.10.11  <none>        Ubuntu 22.04.3 LTS   5.15.0-88-generic   containerd://1.6.24
+k8s-worker-01      Ready    <none>          240d   v1.28.3   192.168.10.21  <none>        Ubuntu 22.04.3 LTS   5.15.0-88-generic   containerd://1.6.24
+k8s-worker-02      Ready    <none>          240d   v1.28.3   192.168.10.22  <none>        Ubuntu 22.04.3 LTS   5.15.0-88-generic   containerd://1.6.24
+
+$ kubectl get pods -A -o wide
+NAMESPACE     NAME                               READY   STATUS       RESTARTS       AGE   IP            NODE
+production    ecommerce-frontend-59cfd-11xpk     1/1     Running      0              14d   10.244.1.20   k8s-worker-01
+production    order-billing-service-789cf-8k9pl  1/1     Running      0              14d   10.244.2.33   k8s-worker-02
+production    user-auth-service-678fd-5nmlq      1/1     Running      0              20d   10.244.1.21   k8s-worker-01
+kube-system   coredns-65c4f69747-8nnqp           1/1     Running      0              240d  10.244.0.2    k8s-master-01
+kube-system   kube-flannel-ds-9k8jl              1/1     Running      0              240d  192.168.10.21 k8s-worker-01
+
+$ kubectl get svc -A
+NAMESPACE     NAME                      TYPE        CLUSTER-IP      EXTERNAL-IP   PORT(S)                  AGE
+production    ecommerce-frontend-svc    ClusterIP   10.96.110.10    <none>        80/TCP                   14d
+production    order-billing-svc         ClusterIP   10.96.110.20    <none>        8080/TCP                 14d
+production    user-auth-svc             ClusterIP   10.96.110.30    <none>        5000/TCP                 20d
+
+$ kubectl get ep -A
+NAMESPACE     NAME                      ENDPOINTS            AGE
+production    ecommerce-frontend-svc    10.244.1.20:80       14d
+production    order-billing-svc         10.244.2.33:8080     14d
+production    user-auth-svc             10.244.1.21:5000     20d
+
+$ kubectl get events -A --sort-by='.metadata.creationTimestamp' | tail -n 50
+NAMESPACE     LAST SEEN   TYPE     REASON      OBJECT                                  MESSAGE
+production    10m         Normal   Scheduled   pod/ecommerce-frontend-59cfd-11xpk      Successfully assigned production/ecommerce-frontend-59cfd-11xpk to k8s-worker-01
+production    10m         Normal   Pulled      pod/ecommerce-frontend-59cfd-11xpk      Container image "corp.harbor/ecommerce:v2.1" already present on machine

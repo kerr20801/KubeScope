@@ -1,0 +1,6 @@
+CERTIFICATE                EXPIRES                  RESIDUAL TIME   CERTIFICATE AUTHORITY   EXTERNALLY MANAGED
+admin.conf                 Nov 15, 2026 08:30 UTC   23d             ca                      no
+apiserver                  Dec 12, 2025 09:00 UTC   expired         ca                      no
+apiserver-etcd-client      Nov 18, 2026 08:30 UTC   26d             etcd-ca                 no
+apiserver-kubelet-client   Nov 20, 2026 08:30 UTC   28d             ca                      no
+front-proxy-client         Dec 01, 2027 08:30 UTC   365d            front-proxy-ca          no

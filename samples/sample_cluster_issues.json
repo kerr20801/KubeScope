@@ -1,0 +1,120 @@
+{
+  "version": "v1.26.2",
+  "nodes": [
+    {
+      "name": "k8s-control-plane-01",
+      "status": "Ready",
+      "roles": "control-plane",
+      "age": "142d",
+      "version": "v1.26.2",
+      "internal_ip": "192.168.10.101",
+      "os_image": "Ubuntu 22.04.3 LTS",
+      "kernel_version": "5.15.0-89-generic",
+      "container_runtime": "containerd://1.6.24",
+      "is_healthy": true
+    },
+    {
+      "name": "k8s-worker-01",
+      "status": "Ready",
+      "roles": "worker",
+      "age": "142d",
+      "version": "v1.26.2",
+      "internal_ip": "192.168.10.102",
+      "os_image": "Ubuntu 22.04.3 LTS",
+      "kernel_version": "5.15.0-89-generic",
+      "container_runtime": "containerd://1.6.24",
+      "is_healthy": true
+    },
+    {
+      "name": "k8s-worker-02",
+      "status": "Ready",
+      "roles": "worker",
+      "age": "142d",
+      "version": "v1.26.2",
+      "internal_ip": "192.168.10.103",
+      "os_image": "Ubuntu 22.04.3 LTS",
+      "kernel_version": "5.15.0-89-generic",
+      "container_runtime": "containerd://1.6.24",
+      "is_healthy": true
+    }
+  ],
+  "pods": [
+    {
+      "namespace": "production",
+      "name": "payment-processor-7b98fd-xq9lm",
+      "ready": "0/1",
+      "status": "OOMKilled",
+      "status_reason": "OOMKilled",
+      "restarts": 14,
+      "age": "2d",
+      "ip": "10.244.1.42",
+      "node": "k8s-worker-01",
+      "labels": {"app": "payment-processor", "env": "production"},
+      "limits": {"cpu": "500m", "memory": "256Mi"},
+      "last_termination_reason": "OOMKilled",
+      "exit_code": 137
+    },
+    {
+      "namespace": "production",
+      "name": "order-api-659cbf-58kql",
+      "ready": "0/1",
+      "status": "CrashLoopBackOff",
+      "status_reason": "CrashLoopBackOff",
+      "restarts": 9,
+      "age": "4h",
+      "ip": "10.244.2.18",
+      "node": "k8s-worker-02",
+      "labels": {"app": "order-api", "env": "production"},
+      "limits": {"cpu": "200m", "memory": "128Mi"}
+    },
+    {
+      "namespace": "production",
+      "name": "web-frontend-99fa4-8hh2n",
+      "ready": "1/1",
+      "status": "Running",
+      "status_reason": "Running",
+      "restarts": 0,
+      "age": "5d",
+      "ip": "10.244.1.30",
+      "node": "k8s-worker-01",
+      "labels": {"app": "web-frontend", "env": "production"}
+    },
+    {
+      "namespace": "kube-system",
+      "name": "coredns-5dd5756b68-f99k2",
+      "ready": "1/1",
+      "status": "Running",
+      "status_reason": "Running",
+      "restarts": 0,
+      "age": "142d",
+      "ip": "10.244.0.2",
+      "node": "k8s-control-plane-01",
+      "labels": {"k8s-app": "kube-dns"}
+    }
+  ],
+  "services": [
+    {
+      "namespace": "production",
+      "name": "web-portal-svc",
+      "type": "ClusterIP",
+      "selector": {"app": "non-existent-portal-label"},
+      "ports": [{"port": 80, "targetPort": 8080}],
+      "endpoints": []
+    },
+    {
+      "namespace": "production",
+      "name": "web-frontend-svc",
+      "type": "ClusterIP",
+      "selector": {"app": "web-frontend"},
+      "ports": [{"port": 80, "targetPort": 80}],
+      "endpoints": ["10.244.1.30:80"]
+    }
+  ],
+  "events": [
+    {
+      "type": "Warning",
+      "reason": "OOMKilling",
+      "message": "Memory cgroup out of memory: Killed process 38291 (java) total-vm:1894200kB, anon-rss:262144kB"
+    }
+  ]
+}
